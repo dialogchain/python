@@ -4,8 +4,11 @@ import asyncio
 import yaml
 import os
 from pathlib import Path
+from typing import List, Optional
 from dotenv import load_dotenv
+
 from .engine import CamelRouterEngine
+from .scanner import NetworkScanner, NetworkService
 
 
 @click.group()
@@ -303,6 +306,56 @@ env_vars:
 
 
 def main():
+    cli()
+
+
+@cli.command()
+@click.option('--network', '-n', default='192.168.1.0/24', 
+              help='Network to scan in CIDR notation')
+@click.option('--service', '-s', multiple=True, 
+              type=click.Choice(['rtsp', 'smtp', 'imap', 'http', 'all']),
+              help='Service types to scan for')
+@click.option('--output', '-o', type=click.Path(),
+              help='Save results to a file')
+@click.option('--timeout', '-t', type=float, default=2.0,
+              help='Timeout in seconds for each connection attempt')
+@click.option('--verbose/--quiet', default=True,
+              help='Show/hide detailed output')
+async def scan(network: str, service: List[str], output: Optional[str], 
+              timeout: float, verbose: bool):
+    """Scan network for common services like RTSP, SMTP, IMAP, etc."""
+    try:
+        if not service or 'all' in service:
+            service_types = None
+        else:
+            service_types = list(service)
+        
+        if verbose:
+            click.echo(f"🔍 Scanning network {network} for services: {service_types or 'all'}")
+        
+        scanner = NetworkScanner(timeout=timeout)
+        services = await scanner.scan_network(network=network, service_types=service_types)
+        
+        # Format and display results
+        result = NetworkScanner.format_service_list(services)
+        click.echo("\n" + result)
+        
+        # Save to file if requested
+        if output:
+            output_path = Path(output)
+            output_path.write_text(result)
+            click.echo(f"\n✓ Results saved to {output_path}")
+            
+    except Exception as e:
+        click.echo(f"❌ Error during scan: {e}", err=True)
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+
+
+def main():
+    """Entry point for the CLI."""
     cli()
 
 
