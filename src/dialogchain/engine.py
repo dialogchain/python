@@ -143,7 +143,11 @@ class CamelRouterEngine:
         if scheme == 'rtsp':
             return RTSPSource(uri)
         elif scheme == 'timer':
-            interval = parsed.path.rstrip('/')
+            # For timer URIs, the interval can be in either the netloc or path
+            # e.g., timer:5s, timer://5s, or timer:/5s
+            interval = parsed.netloc or parsed.path.lstrip('/')
+            if not interval:
+                raise ValueError(f"No interval specified in timer URI: {uri}")
             return TimerSource(interval)
         elif scheme == 'grpc':
             return GRPCSource(uri)
