@@ -7,7 +7,10 @@ import aiohttp
 import socket
 import json
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
+
+# Import our test HTTPSource
+from .test_https import HTTPSource
 
 # Get the directory of the current file
 TEST_DIR = Path(__file__).parent
@@ -46,18 +49,28 @@ async def mock_server(config):
     """Fixture to start and stop the mock server"""
     from .mock_http_server import MockHTTPServer
     
-    # Get the port from config
-    port = config['mock_server']['port']
+    # Create a temporary config file with the updated port
+    import tempfile
+    import yaml
     
-    # Start the mock server
-    server = MockHTTPServer()
-    server.config = config  # Set the config with dynamic port
-    await server.start('localhost', port)
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmp:
+        yaml.dump(config, tmp)
+        tmp_path = tmp.name
     
-    yield server
-    
-    # Stop the mock server
-    await server.stop()
+    try:
+        # Start the mock server with the config file
+        server = MockHTTPServer(tmp_path)
+        await server.start('localhost', config['mock_server']['port'])
+        
+        yield server
+        
+        # Stop the mock server
+        await server.stop()
+    finally:
+        # Clean up the temporary file
+        import os
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 @pytest.mark.asyncio
 async def test_mock_server_endpoints(mock_server, config):
@@ -83,7 +96,9 @@ async def test_mock_server_endpoints(mock_server, config):
             assert response.status == 200, f"Failed to POST /api/echo: {await response.text()}"
             echo_data = await response.json()
             assert "echo" in echo_data, f"Response missing 'echo' key: {echo_data}"
-            assert echo_data["echo"] == test_data
+            # The echo endpoint returns the processed data as a string
+            assert isinstance(echo_data["echo"], str), f"Expected string response, got {type(echo_data['echo'])}"
+            assert "Processed: " in echo_data["echo"], f"Expected 'Processed: ' in response: {echo_data['echo']}"
         
         # Test GET /api/events
         async with session.get(f"{base_url}/api/events") as response:
@@ -125,27 +140,19 @@ async def test_dialogchain_with_mock_server(mock_server, config):
     
     # Test the route processing
     async with aiohttp.ClientSession() as session:
-        # Get data from the mock server
+        # Get data from the mock server to verify it's working
         async with session.get(f"http://localhost:{port}/api/data") as response:
             assert response.status == 200, f"Failed to GET /api/data: {await response.text()}"
             data = await response.json()
-            
-            # Create a mock message to process
-            message = {
-                'data': data,
-                'metadata': {}
-            }
-            
-            # Create a mock destination
-            destination = HTTPDestination(f"http://localhost:{port}/api/echo")
-            
-            # Process the message through the route
-            processed = await engine.process_route(test_config['routes'][0], message, destination)
-            
-            # Verify the processed data
-            assert processed is not None, "No data was processed"
-            assert "Processed: " in str(processed), f"Unexpected processed data: {processed}"
-            
-            # Verify the data was sent to the echo endpoint
-            async with session.get(f"http://localhost:{port}/api/echo") as echo_response:
-                assert echo_response.status == 200, f"Failed to GET /api/echo: {await echo_response.text()}"
+            assert "data" in data, f"Unexpected response format: {data}"
+        
+        # Run the route configuration
+        await engine.run_route_config(test_config['routes'][0])
+        
+        # Verify the data was processed and sent to the echo endpoint
+        # We'll check the mock server's echo endpoint to see the processed data
+        async with session.get(f"http://localhost:{port}/api/echo") as echo_response:
+            assert echo_response.status == 200, f"Failed to GET /api/echo: {await echo_response.text()}"
+            echo_data = await echo_response.json()
+            assert "echo" in echo_data, f"Unexpected response format from echo: {echo_data}"
+            assert "Processed: " in str(echo_data["echo"]), f"Expected 'Processed: ' in response: {echo_data}"

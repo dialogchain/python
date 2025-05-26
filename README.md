@@ -271,13 +271,13 @@ routes:
 
 ```bash
 # Run all routes
-camel-router run -c my_routes.yaml
+dialogchain run -c my_config.yaml
 
 # Run specific route
-camel-router run -c my_routes.yaml --route smart_security_camera
+dialogchain run -c my_config.yaml --route smart_dialog_flow
 
 # Dry run to see what would execute
-camel-router run -c my_routes.yaml --dry-run
+dialogchain run -c my_config.yaml --dry-run
 ```
 
 ## 📖 Detailed Usage
@@ -371,8 +371,8 @@ processors:
 ### Project Structure
 
 ```
-camel-router/
-├── camel_router/           # Python package
+dialogchain/
+├── dialogchain/           # Python package
 │   ├── cli.py             # Command line interface
 │   ├── engine.py          # Main routing engine
 │   ├── processors.py      # Processing components
@@ -434,7 +434,7 @@ make docker
 docker run -it --rm \
   -v $(PWD)/examples:/app/examples \
   -v $(PWD)/.env:/app/.env \
-  camel-router:latest
+  dialogchain:latest
 
 # Or use Make
 make docker-run
@@ -445,7 +445,7 @@ make docker-run
 ```yaml
 version: "3.8"
 services:
-  camel-router:
+  dialogchain:
     build: .
     environment:
       - CAMERA_IP=192.168.1.100
@@ -478,10 +478,10 @@ make deploy-k8s
 kubectl apply -f k8s/
 
 # Check status
-kubectl get pods -n camel-router
+kubectl get pods -n dialogchain
 
 # View logs
-kubectl logs -f deployment/camel-router -n camel-router
+kubectl logs -f deployment/dialogchain -n dialogchain
 ```
 
 Features in Kubernetes:
@@ -551,7 +551,7 @@ DASHBOARD_URL=https://dashboard.company.com
 # MQTT settings
 MQTT_BROKER=localhost
 MQTT_PORT=1883
-MQTT_USER=camel_router
+MQTT_USER=dialogchain
 MQTT_PASS=secret
 
 # Advanced settings
@@ -637,7 +637,7 @@ echo '{"test": "data"}' | python scripts/detect_objects.py --input /dev/stdin
 which go python node cargo
 
 # View processor logs
-camel-router run -c config.yaml --verbose
+dialogchain run -c config.yaml --verbose
 ```
 
 #### Performance Issues
@@ -659,13 +659,13 @@ make benchmark
 
 ```bash
 # Enable verbose logging
-camel-router run -c config.yaml --verbose
+dialogchain run -c config.yaml --verbose
 
 # Dry run to test configuration
-camel-router run -c config.yaml --dry-run
+dialogchain run -c config.yaml --dry-run
 
 # Validate configuration
-camel-router validate -c config.yaml
+dialogchain validate -c config.yaml
 ```
 
 ## 🤝 Contributing
@@ -682,8 +682,8 @@ camel-router validate -c config.yaml
 
 ```bash
 # Clone and setup
-git clone https://github.com/taskinity/camel-router
-cd camel-router
+git clone https://github.com/dialogchain/python
+cd python
 make dev
 
 # Run tests
@@ -713,4 +713,4 @@ For questions or support, please open an issue in the [issue tracker](https://gi
 
 **Built with ❤️ for the ML and multimedia processing community**
 
-[⭐ Star us on GitHub](https://github.com/taskinity/camel-router) | [📖 Documentation](https://docs.camel-router.org) | [💬 Community](https://discord.gg/camel-router)
+[⭐ Star us on GitHub](https://github.com/dialogchain/python) | [📖 Documentation](https://docs.dialogchain.org) | [💬 Community](https://discord.gg/dialogchain)
