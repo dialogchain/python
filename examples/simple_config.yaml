@@ -1,8 +1,8 @@
 # Simple DialogChain Configuration
 routes:
   - name: hello_world
-    from: http://0.0.0.0:8000/hello
-    to: log:info
+    from: timer:5s  # Send a message every 5 seconds
+    to: log:info    # Log to console with INFO level
     processors:
       - type: transform
         template: '{"message": "Hello, World!"}'

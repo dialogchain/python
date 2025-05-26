@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "dialogchain"
-version = "0.1.5"
+version = "0.1.6"
 description = "DialogChain - A flexible and extensible dialog processing framework"
 authors = [
     {name = "DialogChain Team", email = "team@dialogchain.org"},

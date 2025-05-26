@@ -116,17 +116,8 @@ publish:
 	@$(MAKE) clean
 	@echo "🏗️  Building package..."
 	poetry build
-	@if [ -z "$(PYPI_TOKEN)" ] && [ -z "$(PYPI_TOKEN_FROM_FILE)" ]; then \
-		echo "❌ Error: PYPI_TOKEN not found"; \
-		echo "   Please either:"; \
-		echo "   1. Add token to ~/.pypirc or .pypirc: [pypi]"; \
-		echo "      token = pypi_..."; \
-		echo "   2. Add PYPI_TOKEN=... to .env file"; \
-		echo "   3. Run: make publish PYPI_TOKEN=your_token_here"; \
-		exit 1; \
-	fi
-	@echo "🚀 Publishing to PyPI..."; \
-	poetry publish --username=__token__ --password=$(or $(PYPI_TOKEN),$(PYPI_TOKEN_FROM_FILE))
+	@echo "🚀 Publishing to PyPI..."
+	poetry publish
 	@echo "✅ Successfully published to PyPI"
 
 # Test publishing

@@ -189,7 +189,7 @@ poetry run mypy dialogchain
 │ WebSocket   │    │ Intent Detection │    │ WebSocket   │
 │ gRPC        │    │ Entity Extraction│    │ gRPC        │
 │ CLI         │    │ Dialog Management│    │ Message Bus │
-│ Message Bus │    │ Response Gen    │    │ Logging     │
+│ Message Bus │    │ Response Gen     │    │ Logging     │
 └─────────────┘    └──────────────────┘    └─────────────┘
 ```
 
