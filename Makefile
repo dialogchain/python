@@ -298,22 +298,70 @@ run-iot: setup-env
 SCAN_SCRIPT=scripts/network_scanner.py
 PRINTER_SCRIPT=scripts/printer_scanner.py
 
-# Network scanning
-scan-network:
-	@echo "🔍 Scanning network for devices..."
-	@python3 $(SCAN_SCRIPT) --network 192.168.1.0/24
+# Common network settings
+DEFAULT_NETWORK?=192.168.1.0/24
+COMMON_PORTS=80,443,554,8000-8090,8443,8554,8888,9000-9001,10000-10001
+SERVICES=rtsp,http,https,onvif,rtmp,rtmps,rtmpt,rtmpts,rtmpe,rtmpte,rtmfp
 
-scan-cameras:
+# Network scanning targets
+.PHONY: scan-network scan-cameras scan-camera scan-printers scan-local scan-quick scan-full scan-local-camera help
+
+## Network scanning
+scan-network: ## Scan the default network for common services
+	@echo "🔍 Scanning $(DEFAULT_NETWORK) for common services..."
+	@python3 $(SCAN_SCRIPT) --network $(DEFAULT_NETWORK) --service $(SERVICES) --port $(COMMON_PORTS)
+
+## Camera-specific scanning
+scan-cameras: ## Scan for cameras and related services
 	@echo "📷 Scanning for cameras (RTSP, HTTP, ONVIF, etc.)..."
-	@python3 $(SCAN_SCRIPT) --network 192.168.1.0/24 --service rtsp,http,https,onvif,rtmp,rtmps,rtmpt,rtmpts,rtmpe,rtmpte,rtmfp --port 80-90,443,554,8000-8090,8443,8554,8888,9000-9001,10000-10001
+	@python3 $(SCAN_SCRIPT) --network $(DEFAULT_NETWORK) --service $(SERVICES) --port $(COMMON_PORTS) --verbose
 
-scan-camera:
+scan-camera: ## Scan a specific camera IP (make scan-camera IP=192.168.1.100)
+	@if [ -z "$(IP)" ]; then echo "❌ Please specify an IP address: make scan-camera IP=192.168.1.100"; exit 1; fi
 	@echo "🔍 Scanning camera at $(IP)..."
-	@python3 $(SCAN_SCRIPT) --network $(IP) --service rtsp,http,https,onvif --port 80,81,82,83,84,85,86,87,88,89,90,443,554,8000,8001,8002,8080,8081,8082,8083,8084,8085,8086,8087,8088,8089,8090,8443,8554,8888,9000,9001,10000,10001 --verbose
+	@python3 $(SCAN_SCRIPT) --network $(IP) --service $(SERVICES) --port $(COMMON_PORTS) --verbose
 
-scan-printers:
+## Quick and full network scans
+scan-quick: ## Quick scan of common ports (fast but less thorough)
+	@echo "⚡ Quick network scan..."
+	@python3 $(SCAN_SCRIPT) --network $(DEFAULT_NETWORK) --port 21-23,80,443,554,8000,8080,8081,8443,9000 --timeout 1
+
+scan-full: ## Comprehensive scan (slower but more thorough)
+	@echo "🔍 Full network scan (this may take a while)..."
+	@python3 $(SCAN_SCRIPT) --network $(DEFAULT_NETWORK) --port 1-10000 --timeout 2
+
+## Local network scan (common home network ranges)
+scan-local: ## Scan common local network ranges
+	@echo "🏠 Scanning common local network ranges..."
+	@for net in 192.168.0.0/24 192.168.1.0/24 192.168.2.0/24 10.0.0.0/24 10.0.1.0/24; do \
+		echo "\n📡 Scanning network: $$net"; \
+		python3 $(SCAN_SCRIPT) --network $$net --service $(SERVICES) --port $(COMMON_PORTS); \
+	done
+
+## Printer management
+scan-printers: ## List all available printers
 	@echo "🖨️  Listing available printers..."
 	@python3 $(PRINTER_SCRIPT) list
+
+## Help target
+help: ## Show this help
+	@echo "\nAvailable commands:"
+	@echo "================="
+	@echo "Network Scanning:"
+	@echo "  make scan-network    - Scan default network for common services"
+	@echo "  make scan-cameras    - Scan for cameras and related services"
+	@echo "  make scan-camera     - Scan a specific camera (IP=required)"
+	@echo "  make scan-quick      - Quick scan of common ports"
+	@echo "  make scan-full       - Comprehensive network scan (slow)"
+	@echo "  make scan-local      - Scan common local network ranges"
+	@echo "  make scan-local-camera - Scan local networks specifically for cameras"
+	@echo "\nPrinter Management:"
+	@echo "  make scan-printers   - List available printers"
+	@echo "  make print-test      - Print a test page to default printer"
+	@echo "\nExamples:"
+	@echo "  make scan-camera IP=192.168.1.100  # Scan specific device"
+	@echo "  make scan-network NETWORK=10.0.0.0/24  # Scan custom network"
+	@echo "  make scan-printers  # List all available printers"
 
 print-test:
 	@echo "🖨️  Sending test page to default printer..."
@@ -439,3 +487,10 @@ quickstart: install-deps setup-env init-camera build-go
 # Development workflow
 dev-workflow: dev lint test build
 	@echo "✅ Development workflow completed"
+## Scan for cameras on local networks
+scan-local-camera: ## Scan common local networks for cameras
+	@echo "🔍 Scanning local networks for cameras..."
+	@for net in 192.168.0.0/24 192.168.1.0/24 192.168.2.0/24 10.0.0.0/24 10.0.1.0/24; do \
+		echo "\n📡 Scanning for cameras on network: $$net"; \
+		python3 $(SCAN_SCRIPT) --network $$net --service rtsp,http,https,onvif --port 80,81,82,83,84,85,86,87,88,89,90,443,554,8000-8100,8443,8554,8888,9000-9010,10000-10010 --timeout 2 --verbose; \
+	done
