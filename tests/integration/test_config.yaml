@@ -1,0 +1,48 @@
+# Test configuration for integration tests
+routes:
+  - name: "test_http_route"
+    from: "http://localhost:8080/api/data"
+    processors:
+      - type: "transform"
+        template: "Processed: {{ data }}"
+    to: "http://localhost:8080/api/echo"
+
+  - name: "test_filter_route"
+    from: "http://localhost:8080/api/events"
+    processors:
+      - type: "filter"
+        condition: "{{ value > 10 }}"
+      - type: "log"
+        message: "Processing event: {{ event }}"
+    to: "http://localhost:8080/api/events/processed"
+
+# Mock server configuration
+mock_server:
+  host: "localhost"
+  port: 8080
+  endpoints:
+    - path: "/api/data"
+      method: "GET"
+      response:
+        status: 200
+        body: 
+          data: "test data"
+    - path: "/api/echo"
+      method: "POST"
+      response:
+        status: 200
+        body: 
+          echo: "Processed: test data"
+    - path: "/api/events"
+      method: "GET"
+      response:
+        status: 200
+        body:
+          - {"event": "event1", "value": 5}
+          - {"event": "event2", "value": 15}
+    - path: "/api/events/processed"
+      method: "POST"
+      response:
+        status: 200
+        body:
+          success: true

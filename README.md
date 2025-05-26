@@ -199,8 +199,8 @@ poetry run mypy dialogchain
 
 ```bash
 # Clone repository
-git clone https://github.com/taskinity/dialogchain
-cd dialogchain
+git clone https://github.com/dialogchain/python
+cd python
 
 # Install dependencies
 poetry install
@@ -234,7 +234,7 @@ SECURITY_EMAIL=security@company.com
 Generate a configuration template:
 
 ```bash
-camel-router init --template camera --output my_routes.yaml
+dialogchain init --template camera --output my_config.yaml
 ```
 
 Example route (simplified YAML):

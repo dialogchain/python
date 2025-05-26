@@ -55,16 +55,16 @@ install-deps:
 
 # Development
 test:
-	cd tests && python -m pytest -v
+	pytest tests/ -v
 	@echo "✅ Tests completed"
 
 lint:
-	python -m flake8 camel_router/
-	python -m black --check camel_router/
+	python -m flake8 src/dialogchain/
+	python -m black --check src/dialogchain/
 	@echo "✅ Linting completed"
 
 format:
-	python -m black camel_router/
+	python -m black src/dialogchain/
 	@echo "✅ Code formatted"
 
 # Build
