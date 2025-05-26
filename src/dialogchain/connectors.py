@@ -100,15 +100,31 @@ class TimerSource(Source):
             await asyncio.sleep(self.interval)
 
     def _parse_interval(self, interval_str: str) -> float:
-        """Parse interval string to seconds"""
-        if interval_str.endswith('s'):
-            return float(interval_str[:-1])
-        elif interval_str.endswith('m'):
-            return float(interval_str[:-1]) * 60
-        elif interval_str.endswith('h'):
-            return float(interval_str[:-1]) * 3600
-        else:
-            return float(interval_str)
+        """Parse interval string to seconds
+        
+        Args:
+            interval_str: String in format '1s' (seconds), '1m' (minutes), or '1h' (hours)
+            
+        Returns:
+            float: Interval in seconds
+            
+        Raises:
+            ValueError: If interval_str is empty or invalid
+        """
+        if not interval_str or not isinstance(interval_str, str):
+            raise ValueError(f"Invalid interval: '{interval_str}'. Must be a non-empty string.")
+            
+        try:
+            if interval_str.endswith('s'):
+                return float(interval_str[:-1])
+            elif interval_str.endswith('m'):
+                return float(interval_str[:-1]) * 60
+            elif interval_str.endswith('h'):
+                return float(interval_str[:-1]) * 3600
+            else:
+                return float(interval_str)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Invalid interval format: '{interval_str}'. Expected format: '1s', '1m', or '1h'.") from e
 
 
 class GRPCSource(Source):

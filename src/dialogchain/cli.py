@@ -59,10 +59,6 @@ def run(config, env_file, route, dry_run, verbose):
         click.echo(f"❌ Error: {e}", err=True)
 
 
-@cli.command()
-@click.option('--template', '-t', type=click.Choice(['camera', 'grpc', 'email', 'full']),
-              default='camera', help='Template type to generate')
-@click.option('--output', '-o', default='routes.yaml', help='Output file name')
 def update_env_file(env_path, required_vars):
     """Update .env file with missing variables."""
     env_path = Path(env_path)
