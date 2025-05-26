@@ -92,14 +92,41 @@ version:
 	git tag -a "v$$(poetry version --short)" -m "Version $$(poetry version --short)"
 	@echo "✅ Version bumped and tagged. Don't forget to push with tags: git push --follow-tags"
 
+# Helper to get PYPI_TOKEN from files
+define get_pypi_token
+$(shell \
+    if [ -f "${HOME}/.pypirc" ]; then \
+        grep -A 2 '\[pypi\]' "${HOME}/.pypirc" 2>/dev/null | grep 'token = ' | cut -d' ' -f3; \
+    elif [ -f ".pypirc" ]; then \
+        grep -A 2 '\[pypi\]' ".pypirc" 2>/dev/null | grep 'token = ' | cut -d' ' -f3; \
+    elif [ -f ".env" ]; then \
+        grep '^PYPI_TOKEN=' ".env" 2>/dev/null | cut -d'=' -f2-; \
+    fi
+)
+endef
+
+# Export the function to be used in the recipe
+PYPI_TOKEN_FROM_FILE := $(call get_pypi_token)
+
 # Publishing
-publish: build
-	@if [ -z "$(PYPI_TOKEN)" ]; then \
-		echo "Error: Please set PYPI_TOKEN environment variable"; \
+publish:
+	@echo "🔄 Bumping version..."
+	poetry version patch
+	@echo "🧹 Cleaning build artifacts..."
+	@$(MAKE) clean
+	@echo "🏗️  Building package..."
+	poetry build
+	@if [ -z "$(PYPI_TOKEN)" ] && [ -z "$(PYPI_TOKEN_FROM_FILE)" ]; then \
+		echo "❌ Error: PYPI_TOKEN not found"; \
+		echo "   Please either:"; \
+		echo "   1. Add token to ~/.pypirc or .pypirc: [pypi]"; \
+		echo "      token = pypi_..."; \
+		echo "   2. Add PYPI_TOKEN=... to .env file"; \
+		echo "   3. Run: make publish PYPI_TOKEN=your_token_here"; \
 		exit 1; \
 	fi
-	@echo "🚀 Publishing to PyPI..."
-	poetry publish --build --username=__token__ --password=$(PYPI_TOKEN)
+	@echo "🚀 Publishing to PyPI..."; \
+	poetry publish --username=__token__ --password=$(or $(PYPI_TOKEN),$(PYPI_TOKEN_FROM_FILE))
 	@echo "✅ Successfully published to PyPI"
 
 # Test publishing
@@ -205,7 +232,7 @@ run-example: setup-env
 	@echo "🚀 Starting $(EXAMPLE) example..."
 	@case "$(EXAMPLE)" in \
 		simple) \
-			poetry run dialogchain run -c examples/simple_routes.yaml ;; \
+			poetry run dialogchain run -c examples/simple_config.yaml ;; \
 		grpc) \
 			docker-compose -f examples/docker-compose.yml up -d grpc-server && \
 			poetry run dialogchain run -c examples/grpc_routes.yaml ;; \
@@ -218,6 +245,10 @@ run-example: setup-env
 			echo "Error: Unknown example '$(EXAMPLE)'"; \
 			exit 1 ;; \
 	esac
+
+# Run the simple example with verbose output
+run-simple-verbose:
+	poetry run dialogchain run -c examples/simple_config.yaml --verbose
 
 # View logs for running example
 view-logs:

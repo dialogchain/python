@@ -99,7 +99,7 @@ async def test_mock_server_endpoints(mock_server, config):
             assert "echo" in echo_data, f"Response missing 'echo' key: {echo_data}"
             # The echo endpoint returns the processed data as a string
             assert isinstance(echo_data["echo"], str), f"Expected string response, got {type(echo_data['echo'])}"
-            assert "Processed: " in echo_data["echo"], f"Expected 'Processed: ' in response: {echo_data['echo']}"
+            assert "Processed: " in echo_data["echo"], f"Expected 'Processed: ' in response: {echo_data}"
         
         # Test GET /api/events
         async with session.get(f"{base_url}/api/events") as response:
@@ -119,12 +119,25 @@ class MockSource:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         pass
     
-    async def receive(self):
-        """Return test data"""
-        return [{
+    def __aiter__(self):
+        self._data = [{
             'data': {'test': 'data'},
             'metadata': {'url': 'mock://test', 'status': 200}
         }]
+        self._index = 0
+        return self
+    
+    async def __anext__(self):
+        if self._index >= len(self._data):
+            raise StopAsyncIteration
+        result = self._data[self._index]
+        self._index += 1
+        return result
+    
+    # For backward compatibility with the engine
+    def receive(self):
+        """Return self as an async iterator"""
+        return self
 
 class TestCamelRouterEngine(CamelRouterEngine):
     """Test engine that uses our mock source"""
@@ -158,21 +171,49 @@ async def test_dialogchain_with_mock_server(mock_server, config):
     # Initialize our test engine with the config
     engine = TestCamelRouterEngine(test_config, verbose=True)
     
-    # Test the route processing
-    async with aiohttp.ClientSession() as session:
-        # Get data from the mock server to verify it's working
-        async with session.get(f"http://localhost:{port}/api/data") as response:
-            assert response.status == 200, f"Failed to GET /api/data: {await response.text()}"
-            data = await response.json()
-            assert "data" in data, f"Unexpected response format: {data}"
+    # Create a mock destination to capture the output
+    class MockDestination:
+        def __init__(self):
+            self.received_messages = []
         
-        # Run the route configuration
-        await engine.run_route_config(test_config['routes'][0])
-        
-        # Verify the data was processed and sent to the echo endpoint
-        # We'll check the mock server's echo endpoint to see the processed data
-        async with session.get(f"http://localhost:{port}/api/echo") as echo_response:
-            assert echo_response.status == 200, f"Failed to GET /api/echo: {await echo_response.text()}"
-            echo_data = await echo_response.json()
-            assert "echo" in echo_data, f"Unexpected response format from echo: {echo_data}"
-            assert "Processed: " in str(echo_data["echo"]), f"Expected 'Processed: ' in response: {echo_data}"
+        async def __aenter__(self):
+            return self
+            
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+            
+        async def send(self, message):
+            self.received_messages.append(message)
+            return [{"status": "success"}]
+    
+    # Create a mock destination
+    mock_dest = MockDestination()
+    
+    # Patch the engine's create_destination method to return our mock
+    original_create_dest = engine.create_destination
+    
+    def patched_create_dest(uri):
+        if uri == "mock://destination":
+            return mock_dest
+        return original_create_dest(uri)
+    
+    engine.create_destination = patched_create_dest
+    
+    # Run the route configuration
+    await engine.run_route_config(test_config['routes'][0])
+    
+    # Verify the destination received the processed message
+    assert len(mock_dest.received_messages) > 0, "No messages were sent to the destination"
+    message = mock_dest.received_messages[0]
+    
+    # The message should have the original data and metadata, plus the processed message
+    assert "data" in message, f"Message missing 'data' key: {message}"
+    assert "metadata" in message, f"Message missing 'metadata' key: {message}"
+    assert "message" in message, f"Message missing 'message' key: {message}"
+    
+    # Check the processed message
+    assert message["message"] == "Processed: data", f"Unexpected processed message: {message}"
+    
+    # Check the original data is preserved
+    assert message["data"] == {"test": "data"}, f"Unexpected data: {message['data']}"
+    assert message["metadata"]["url"] == "mock://test", f"Unexpected URL: {message['metadata']['url']}"
