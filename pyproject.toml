@@ -4,13 +4,13 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "dialogchain"
-version = "0.1.7"
+version = "0.1.8"
 description = "DialogChain - A flexible and extensible dialog processing framework"
 authors = [
     {name = "DialogChain Team", email = "team@dialogchain.org"},
 ]
 readme = "README.md"
-requires-python = ">=3.8.1,<3.12"
+requires-python = ">=3.8.1,<3.13"
 license = {text = "Apache-2.0"}
 classifiers = [
     "Development Status :: 4 - Beta",
