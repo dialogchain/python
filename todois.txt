@@ -1,8 +1,0 @@
-let's compare folders: /home/tom/github/dialogchain/python  and /home/tom/github/taskinity/dsl
-we moved from /home/tom/github/taskinity/dsl that folders:
-src/
-tests/
-dialogchain/
-
-and some files, so, let remove from  /home/tom/github/taskinity/dsl all files and folders that are now in new path: /home/tom/github/dialogchain/python
-
