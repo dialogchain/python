@@ -185,11 +185,16 @@ docker-run: docker
 # Examples and setup
 setup-env:
 	@if [ ! -f .env ]; then \
-		cp .env.example .env; \
-		echo "✅ Created .env file from template"; \
+		if [ -f .env.example ]; then \
+			cp .env.example .env; \
+			echo "✅ Created .env file from template"; \
+		else \
+			touch .env; \
+			echo "✅ Created empty .env file"; \
+		fi; \
 		echo "📝 Please edit .env with your configuration"; \
 	else \
-		echo "⚠️  .env file already exists"; \
+		echo "ℹ️  .env file already exists"; \
 	fi
 
 # List available examples
