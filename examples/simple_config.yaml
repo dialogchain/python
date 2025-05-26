@@ -1,13 +1,8 @@
 # Simple DialogChain Configuration
 routes:
   - name: hello_world
-    source:
-      type: http
-      endpoint: /hello
-      method: GET
+    from: http://0.0.0.0:8000/hello
+    to: log:info
     processors:
       - type: transform
         template: '{"message": "Hello, World!"}'
-    sink:
-      type: http_response
-      content_type: application/json
