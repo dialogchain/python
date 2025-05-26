@@ -113,11 +113,11 @@ async def test_mock_server_endpoints(mock_server, config):
 class TestCamelRouterEngine(CamelRouterEngine):
     """Test engine that can handle HTTP sources"""
     
-    async def create_source(self, uri: str):
+    def create_source(self, uri: str):
         """Create source connector from URI"""
         if uri.startswith('http'):
             return HTTPSource(uri)
-        return await super().create_source(uri)
+        return super().create_source(uri)
 
 @pytest.mark.asyncio
 async def test_dialogchain_with_mock_server(mock_server, config):
