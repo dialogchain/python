@@ -138,12 +138,28 @@ class FilterProcessor(Processor):
         
         The condition is evaluated as a Python expression with access to the context variables.
         For example: 'value > 10 and name == "test"'
+        
+        Args:
+            condition: The condition string, which may contain template variables like {{value}}
+            context: Dictionary containing the variables to use for evaluation
+            
+        Returns:
+            bool: The result of the condition evaluation
         """
         try:
-            # Safely evaluate the condition with access to context variables
-            return eval(condition, {"__builtins__": {}}, context)
+            # First, render any template variables in the condition
+            from jinja2 import Template
+            template = Template(condition)
+            rendered_condition = template.render(**context)
+            
+            # Then evaluate the rendered condition as a Python expression
+            # We use a safe evaluation context with only the context variables
+            return eval(rendered_condition, {"__builtins__": {}}, context)
         except Exception as e:
             print(f"❌ Condition evaluation error: {e}, condition: {condition}")
+            # In case of error, return False to filter out the message
+            # but store the error in the context for debugging
+            context['_filter_error'] = str(e)
             return False
 
 
