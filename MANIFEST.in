@@ -1,0 +1,7 @@
+include README.md
+include LICENSE
+include CHANGELOG.md
+include requirements.txt
+recursive-include dialogchain *.py
+recursive-include examples *
+recursive-include tests *

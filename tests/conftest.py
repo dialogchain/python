@@ -1,32 +1,27 @@
-"""
-Test configuration and fixtures
-"""
+"""Pytest configuration and fixtures."""
 import pytest
-import asyncio
-from unittest.mock import AsyncMock
+from pathlib import Path
 
-# This makes event loop available in test functions
-@pytest.fixture
-def event_loop():
-    loop = asyncio.get_event_loop()
-    yield loop
-    loop.close()
+# Add the src directory to the Python path
+TEST_DIR = Path(__file__).parent
+PROJECT_ROOT = TEST_DIR.parent
 
-# Common test fixtures
+# Make the package available for testing
+import sys
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+
+# Common fixtures can be defined here
 @pytest.fixture
-def mock_config():
-    """Sample configuration for testing"""
+def sample_config():
+    """Return a sample configuration for testing."""
     return {
-        'routes': [
+        "version": "1.0",
+        "routes": [
             {
-                'name': 'test_route',
-                'from': 'timer://5s',
-                'processors': [
-                    {
-                        'type': 'log',
-                        'message': 'Processing message'
-                    }
-                ]
+                "id": "test_route",
+                "from": "test_source",
+                "to": ["test_destination"],
+                "processors": ["test_processor"]
             }
         ]
     }
