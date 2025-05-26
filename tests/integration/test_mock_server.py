@@ -138,6 +138,16 @@ async def test_dialogchain_with_mock_server(mock_server, config):
     # Initialize the engine with test config
     engine = CamelRouterEngine(test_config, verbose=True)
     
+    # Patch the create_source method to use our HTTPSource
+    original_create_source = engine.create_source
+    
+    def patched_create_source(uri):
+        if uri.startswith('http'):
+            return HTTPSource(uri)
+        return original_create_source(uri)
+    
+    engine.create_source = patched_create_source
+    
     # Test the route processing
     async with aiohttp.ClientSession() as session:
         # Get data from the mock server to verify it's working

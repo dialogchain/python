@@ -336,7 +336,7 @@ with socketserver.TCPServer(('', PORT), Handler) as httpd:\
 docs:
 	@echo "📚 Generating documentation..."
 	@mkdir -p docs
-	@echo "import camel_router\nhelp(camel_router)" | python > docs/api.md
+	@echo "import dialogchain\nhelp(dialogchain)" | python > docs/api.md
 	@echo "✅ Documentation generated in docs/"
 
 # Deployment helpers
@@ -358,7 +358,7 @@ benchmark:
 # Quick start for new users
 quickstart: install-deps setup-env init-camera build-go
 	@echo ""
-	@echo "🎉 Camel Router Quick Start Complete!"
+	@echo "🎉 DialogChain Quick Start Complete!"
 	@echo ""
 	@echo "Next steps:"
 	@echo "1. Edit .env with your camera and email settings"
