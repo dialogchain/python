@@ -22,20 +22,35 @@ class HTTPSource:
         if self.session:
             await self.session.close()
     
-    async def receive(self):
-        """Receive data from the HTTP endpoint"""
+    async def _fetch_data(self):
+        """Fetch data from the HTTP endpoint"""
         if not self.session:
             self.session = aiohttp.ClientSession()
             
         async with self.session.get(self.url) as response:
             if response.status == 200:
                 data = await response.json()
-                return [{'data': data, 'metadata': {'url': self.url, 'status': response.status}}]
+                return {'data': data, 'metadata': {'url': self.url, 'status': response.status}}
             else:
-                return [{'error': f"HTTP {response.status}", 'metadata': {'url': self.url, 'status': response.status}}]
+                return {'error': f"HTTP {response.status}", 'metadata': {'url': self.url, 'status': response.status}}
+    
+    async def receive(self):
+        """Return an async iterator that yields messages"""
+        class HTTPSourceIterator:
+            def __init__(self, source):
+                self.source = source
+                self._data_received = False
+            
+            def __aiter__(self):
+                return self
+            
+            async def __anext__(self):
+                if self._data_received:
+                    raise StopAsyncIteration
+                self._data_received = True
+                return await self.source._fetch_data()
         
-        # Return an empty list if no data was received
-        return []
+        return HTTPSourceIterator(self)
 
 # Patch the engine to use our test HTTPSource
 @pytest.fixture(autouse=True)

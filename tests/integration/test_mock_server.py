@@ -11,6 +11,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 # Import our test HTTPSource
 from .test_https import HTTPSource
+from dialogchain.engine import CamelRouterEngine
 
 # Get the directory of the current file
 TEST_DIR = Path(__file__).parent
@@ -109,10 +110,18 @@ async def test_mock_server_endpoints(mock_server, config):
             assert "event" in events[0], f"Event missing 'event' key: {events[0]}"
             assert "value" in events[0], f"Event missing 'value' key: {events[0]}"
 
+class TestCamelRouterEngine(CamelRouterEngine):
+    """Test engine that can handle HTTP sources"""
+    
+    async def create_source(self, uri: str):
+        """Create source connector from URI"""
+        if uri.startswith('http'):
+            return HTTPSource(uri)
+        return await super().create_source(uri)
+
 @pytest.mark.asyncio
 async def test_dialogchain_with_mock_server(mock_server, config):
     """Test DialogChain with the mock server"""
-    from dialogchain.engine import CamelRouterEngine
     from dialogchain.connectors import HTTPDestination
     
     # Get the port from config
@@ -135,18 +144,8 @@ async def test_dialogchain_with_mock_server(mock_server, config):
         ]
     }
     
-    # Initialize the engine with test config
-    engine = CamelRouterEngine(test_config, verbose=True)
-    
-    # Patch the create_source method to use our HTTPSource
-    original_create_source = engine.create_source
-    
-    def patched_create_source(uri):
-        if uri.startswith('http'):
-            return HTTPSource(uri)
-        return original_create_source(uri)
-    
-    engine.create_source = patched_create_source
+    # Initialize our test engine with the config
+    engine = TestCamelRouterEngine(test_config, verbose=True)
     
     # Test the route processing
     async with aiohttp.ClientSession() as session:
