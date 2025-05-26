@@ -294,36 +294,45 @@ run-iot: setup-env
 	@echo "🚀 Running IoT example..."
 	@make run-example EXAMPLE=iot
 
+# Network scanning scripts
+SCAN_SCRIPT=scripts/network_scanner.py
+PRINTER_SCRIPT=scripts/printer_scanner.py
+
+# Network scanning
 scan-network:
 	@echo "🔍 Scanning network for devices..."
-	@python -c "from dialogchain.scanner import NetworkScanner; import asyncio; \
-	    scanner = NetworkScanner(); \
-	    services = asyncio.run(scanner.scan_network()); \
-	    print('\n'.join(f'{s.ip}:{s.port} - {s.service} ({s.banner})' for s in services))"
+	@python3 $(SCAN_SCRIPT) --network 192.168.1.0/24
 
 scan-cameras:
-	@echo "📷 Scanning for cameras..."
-	@python -c "from dialogchain.scanner import NetworkScanner; import asyncio; \
-	    scanner = NetworkScanner(); \
-	    services = asyncio.run(scanner.scan_network(service_types=['rtsp'])); \
-	    print('\n'.join(f'Camera found at rtsp://{s.ip}:{s.port}' for s in services))"
+	@echo "📷 Scanning for cameras (RTSP, HTTP, ONVIF, etc.)..."
+	@python3 $(SCAN_SCRIPT) --network 192.168.1.0/24 --service rtsp,http,https,onvif,rtmp,rtmps,rtmpt,rtmpts,rtmpe,rtmpte,rtmfp --port 80-90,443,554,8000-8090,8443,8554,8888,9000-9001,10000-10001
+
+scan-camera:
+	@echo "🔍 Scanning camera at $(IP)..."
+	@python3 $(SCAN_SCRIPT) --network $(IP) --service rtsp,http,https,onvif --port 80,81,82,83,84,85,86,87,88,89,90,443,554,8000,8001,8002,8080,8081,8082,8083,8084,8085,8086,8087,8088,8089,8090,8443,8554,8888,9000,9001,10000,10001 --verbose
 
 scan-printers:
-	@echo "🖨️  Scanning for printers..."
-	@python -c "import cups; conn = cups.Connection(); \
-	    printers = conn.getPrinters(); \
-	    [print(f'Printer: {p} - {printers[p]["device-uri"]}') for p in printers]"
+	@echo "🖨️  Listing available printers..."
+	@python3 $(PRINTER_SCRIPT) list
 
 print-test:
 	@echo "🖨️  Sending test page to default printer..."
-	@python -c "import cups; conn = cups.Connection(); \
-	    printers = conn.getPrinters(); \
-	    if printers: \
-	        printer = list(printers.keys())[0]; \
-	        job_id = conn.printFile(printer, '/dev/stdin', 'Test Print', {'raw': 'True'}); \
-	        print(f'✅ Sent test page to {printer} (Job ID: {job_id})'); \
-	    else: \
-	        print('❌ No printers found')" < <(echo 'Hello from DialogChain! This is a test print.')
+	@echo "Hello from DialogChain! This is a test print." | python3 $(PRINTER_SCRIPT) print
+
+# Advanced scanning options
+scan-network-detailed:
+	@echo "🔍 Detailed network scan (slower but more thorough)..."
+	@python3 $(SCAN_SCRIPT) --network 192.168.1.0/24 --service rtsp,http,https,ssh,vnc
+
+scan-custom-network:
+	@echo "🔍 Scanning custom network (usage: make scan-custom-network NETWORK=192.168.0.0/24)"
+	@python3 $(SCAN_SCRIPT) --network $(or $(NETWORK),192.168.1.0/24)
+
+scan-custom-ports:
+	@echo "🔍 Scanning custom ports (usage: make scan-custom-ports PORTS=80,443,8080)"
+	@python3 $(SCAN_SCRIPT) --port $(or $(PORTS),80,443,8080)
+
+
 
 run-simple: setup-env
 	@echo "🚀 Running simple example..."

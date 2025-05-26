@@ -104,32 +104,78 @@ async def main():
     """Main function for command-line usage."""
     parser = argparse.ArgumentParser(description='Network scanner for DialogChain')
     parser.add_argument('--network', '-n', default='192.168.1.0/24',
-                      help='Network to scan in CIDR notation')
+                      help='Network to scan in CIDR notation (default: 192.168.1.0/24)')
     parser.add_argument('--service', '-s', action='append',
-                      help='Service types to scan (rtsp, http, etc.)')
-    parser.add_argument('--port', '-p', type=int, action='append',
-                      help='Specific ports to scan')
+                      help='Service types to scan (rtsp, http, https, ssh, etc.)')
+    parser.add_argument('--port', '-p', default=None,
+                      help='Comma-separated list of ports or port ranges to scan (e.g., 80,443,8000-9000)')
     parser.add_argument('--timeout', '-t', type=float, default=1.0,
-                      help='Connection timeout in seconds')
+                      help='Connection timeout in seconds (default: 1.0)')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                      help='Show detailed output')
     
     args = parser.parse_args()
     
+    # Process ports from --port argument
+    ports = []
+    if args.port:
+        for port_str in args.port.split(','):
+            port_str = port_str.strip()
+            if '-' in port_str:
+                # Handle port ranges (e.g., 8000-9000)
+                try:
+                    start, end = map(int, port_str.split('-'))
+                    ports.extend(range(start, end + 1))
+                except (ValueError, IndexError):
+                    print(f"Warning: Invalid port range '{port_str}'. Skipping...")
+            elif port_str.isdigit():
+                ports.append(int(port_str))
+    
     scanner = SimpleNetworkScanner(timeout=args.timeout)
-    services = await scanner.scan_network(
-        network=args.network,
-        ports=args.port,
-        service_types=args.service
-    )
     
-    # Print results
-    print("\nScan Results:")
-    print("-" * 60)
-    print(f"{'IP':<15} {'Port':<6} {'Service':<10} {'Status'}")
-    print("-" * 60)
+    if args.verbose:
+        print(f"Starting network scan on {args.network}")
+        if ports:
+            print(f"Scanning ports: {', '.join(map(str, ports))}")
+        if args.service:
+            print(f"Scanning services: {', '.join(args.service)}")
     
-    for svc in sorted(services, key=lambda x: (x.ip, x.port)):
-        status = "UP" if svc.is_up else "DOWN"
-        print(f"{svc.ip:<15} {svc.port:<6} {svc.service:<10} {status}")
+    try:
+        services = await scanner.scan_network(
+            network=args.network,
+            ports=ports if ports else None,
+            service_types=args.service
+        )
+        
+        # Filter only active services
+        active_services = [s for s in services if s.is_up]
+        
+        if args.verbose or not active_services:
+            print("\nScan Results:")
+            print("-" * 60)
+            print(f"{'IP':<15} {'Port':<6} {'Service':<10} {'Status'}")
+            print("-" * 60)
+        
+        if not active_services:
+            print("No active services found.")
+            if not args.verbose:
+                print("Use -v for more detailed output.")
+            return
+        
+        for svc in sorted(active_services, key=lambda x: (x.ip, x.port)):
+            status = "UP"
+            print(f"{svc.ip:<15} {svc.port:<6} {svc.service:<10} {status}")
+            
+    except KeyboardInterrupt:
+        print("\nScan interrupted by user.")
+    except Exception as e:
+        print(f"\nError during scan: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
     asyncio.run(main())
