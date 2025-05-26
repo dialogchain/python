@@ -269,15 +269,37 @@ routes:
 
 ### 4. Run
 
+Run all routes
 ```bash
-# Run all routes
 dialogchain run -c my_config.yaml
+```
 
-# Run specific route
+Run specific route
+```bash
 dialogchain run -c my_config.yaml --route smart_dialog_flow
+```
 
-# Dry run to see what would execute
+
+Dry run to see what would execute
+```bash
 dialogchain run -c my_config.yaml --dry-run
+```
+
+
+```bash
+ dialogchain run -c my_config.yaml --dry-run
+🔍 DRY RUN - Configuration Analysis:
+==================================================
+
+📍 Route: front_door_camera
+   From: rtsp://:@/stream1
+   Processors:
+     1. external
+        Command: python -m ultralytics_processor
+     2. filter
+     3. transform
+   To:
+     • email://:?user=&password=&to=
 ```
 
 ## 📖 Detailed Usage

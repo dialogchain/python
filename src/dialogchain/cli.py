@@ -63,9 +63,64 @@ def run(config, env_file, route, dry_run, verbose):
 @click.option('--template', '-t', type=click.Choice(['camera', 'grpc', 'email', 'full']),
               default='camera', help='Template type to generate')
 @click.option('--output', '-o', default='routes.yaml', help='Output file name')
-def init(template, output):
-    """Generate sample configuration file"""
+def update_env_file(env_path, required_vars):
+    """Update .env file with missing variables."""
+    env_path = Path(env_path)
+    existing_vars = set()
+    env_lines = []
+    
+    # Read existing .env file if it exists
+    if env_path.exists():
+        with open(env_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    var_name = line.split('=')[0].strip()
+                    existing_vars.add(var_name)
+                    env_lines.append(f"{line}\n")
+                else:
+                    env_lines.append(f"{line}\n" if line else "\n")
+    
+    # Add missing variables
+    added_vars = []
+    for var in sorted(required_vars):
+        if var not in existing_vars:
+            env_lines.append(f"{var}=\n")
+            added_vars.append(var)
+    
+    # Write back to .env file
+    if added_vars:
+        with open(env_path, 'w') as f:
+            f.writelines(env_lines)
+    
+    return added_vars
 
+def extract_env_vars(template_content):
+    """Extract environment variables from template content."""
+    import re
+    # Find all {{VARIABLE}} patterns
+    pattern = r'{{\s*([A-Z0-9_]+)\s*}}'
+    matches = re.findall(pattern, template_content)
+    
+    # Also check for env_vars section in YAML
+    env_vars = set(matches)
+    try:
+        import yaml
+        config = yaml.safe_load(template_content)
+        if 'env_vars' in config and isinstance(config['env_vars'], list):
+            env_vars.update(var for var in config['env_vars'] if isinstance(var, str))
+    except Exception:
+        pass
+    
+    return sorted(env_vars)
+
+@cli.command()
+@click.option('--template', '-t', type=click.Choice(['camera', 'grpc', 'email', 'full']),
+              default='camera', help='Template type to generate')
+@click.option('--output', '-o', default='routes.yaml', help='Output file name')
+@click.option('--no-env', is_flag=True, help='Skip updating .env file')
+def init(template, output, no_env):
+    """Generate sample configuration file and update .env with required variables"""
     templates = {
         'camera': get_camera_template(),
         'grpc': get_grpc_template(),
@@ -75,11 +130,24 @@ def init(template, output):
 
     template_content = templates[template]
 
+    # Write the configuration file
     with open(output, 'w') as f:
         f.write(template_content)
 
     click.echo(f"✓ Generated {template} template in {output}")
-    click.echo(f"📝 Edit the configuration and run: dialogchain run -c {output}")
+    
+    # Handle .env file
+    if not no_env:  # Only update .env if --no-env flag is not set
+        env_vars = extract_env_vars(template_content)
+        if env_vars:
+            added = update_env_file('.env', env_vars)
+            if added:
+                click.echo("\n✓ Added the following environment variables to .env:")
+                for var in added:
+                    click.echo(f"  - {var}")
+                click.echo("\n📝 Please edit .env and set the appropriate values")
+    
+    click.echo(f"\n📝 Edit the configuration and run: dialogchain run -c {output}")
 
 
 @cli.command()
