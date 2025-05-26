@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="dialogchain",
-    version="0.1.0",
+    version="0.1.3",
     description="DialogChain - A flexible and extensible dialog processing framework",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
