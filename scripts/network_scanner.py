@@ -6,9 +6,11 @@ Provides basic network scanning capabilities without requiring root privileges.
 
 import asyncio
 import socket
+import aiohttp
 import argparse
-from typing import List, Optional
-from dataclasses import dataclass
+import json
+from typing import List, Optional, Dict, Any
+from dataclasses import dataclass, asdict
 
 @dataclass
 class NetworkService:
@@ -49,15 +51,59 @@ class SimpleNetworkScanner:
             writer.close()
             await writer.wait_closed()
             return True
-        except (asyncio.TimeoutError, ConnectionRefusedError, OSError):
+        except (asyncio.TimeoutError, ConnectionRefusedError, OSError, ConnectionResetError):
             return False
     
-    def identify_service(self, port: int) -> str:
-        """Identify service based on port number."""
+    async def identify_service(self, ip: str, port: int) -> Dict[str, Any]:
+        """Identify service running on the port."""
+        # First check common ports
         for service, ports in self.COMMON_PORTS.items():
             if port in ports:
+                return {
+                    'service': service,
+                    'protocol': 'tcp',
+                    'secure': port in [443, 8443, 8883],
+                    'banner': ''
+                }
+        
+        # Try to identify web services
+        if port in [80, 443, 8080, 8000, 8001, 8888, 8443]:
+            is_https = port in [443, 8443]
+            service = await self.check_web_service(ip, port, is_https)
+            if service:
                 return service
-        return "unknown"
+        
+        return {
+            'service': 'unknown',
+            'protocol': 'tcp',
+            'secure': False,
+            'banner': ''
+        }
+        
+    async def check_web_service(self, ip: str, port: int, is_https: bool = False) -> Optional[Dict[str, Any]]:
+        """Check if a web service is running on the port."""
+        protocol = 'https' if is_https else 'http'
+        url = f"{protocol}://{ip}:{port}"
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                try:
+                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=self.timeout), 
+                                        ssl=False, allow_redirects=True) as response:
+                        if response.status < 500:  # Any success or client error
+                            return {
+                                'service': 'http' if not is_https else 'https',
+                                'protocol': 'tcp',
+                                'secure': is_https,
+                                'banner': f"HTTP {response.status} {response.reason}",
+                                'headers': dict(response.headers)
+                            }
+                except (aiohttp.ClientError, asyncio.TimeoutError):
+                    pass
+        except Exception as e:
+            pass
+            
+        return None
     
     async def scan_network(
         self, 
@@ -92,12 +138,18 @@ class SimpleNetworkScanner:
     async def scan_port(self, ip: str, port: int) -> NetworkService:
         """Scan a single port and return service info."""
         is_open = await self.check_port(ip, port)
-        service = self.identify_service(port)
+        if not is_open:
+            return NetworkService(ip=ip, port=port, is_up=False)
+            
+        service_info = await self.identify_service(ip, port)
         return NetworkService(
             ip=ip,
             port=port,
-            service=service,
-            is_up=is_open
+            service=service_info['service'],
+            protocol=service_info['protocol'],
+            banner=service_info.get('banner', ''),
+            is_secure=service_info.get('secure', False),
+            is_up=True
         )
 
 async def main():
@@ -109,8 +161,8 @@ async def main():
                       help='Service types to scan (rtsp, http, https, ssh, etc.)')
     parser.add_argument('--port', '-p', default=None,
                       help='Comma-separated list of ports or port ranges to scan (e.g., 80,443,8000-9000)')
-    parser.add_argument('--timeout', '-t', type=float, default=1.0,
-                      help='Connection timeout in seconds (default: 1.0)')
+    parser.add_argument('--timeout', '-t', type=float, default=3.0,
+                      help='Connection timeout in seconds (default: 3.0)')
     parser.add_argument('--verbose', '-v', action='store_true',
                       help='Show detailed output')
     
