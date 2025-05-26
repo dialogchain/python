@@ -31,6 +31,7 @@ help:
 # Installation
 install:
 	pip install -e .
+	pip install python-nmap opencv-python pycups
 	@echo "✅ DialogChain installed"
 
 dev: install
@@ -292,6 +293,37 @@ run-grpc: setup-env
 run-iot: setup-env
 	@echo "🚀 Running IoT example..."
 	@make run-example EXAMPLE=iot
+
+scan-network:
+	@echo "🔍 Scanning network for devices..."
+	@python -c "from dialogchain.scanner import NetworkScanner; import asyncio; \
+	    scanner = NetworkScanner(); \
+	    services = asyncio.run(scanner.scan_network()); \
+	    print('\n'.join(f'{s.ip}:{s.port} - {s.service} ({s.banner})' for s in services))"
+
+scan-cameras:
+	@echo "📷 Scanning for cameras..."
+	@python -c "from dialogchain.scanner import NetworkScanner; import asyncio; \
+	    scanner = NetworkScanner(); \
+	    services = asyncio.run(scanner.scan_network(service_types=['rtsp'])); \
+	    print('\n'.join(f'Camera found at rtsp://{s.ip}:{s.port}' for s in services))"
+
+scan-printers:
+	@echo "🖨️  Scanning for printers..."
+	@python -c "import cups; conn = cups.Connection(); \
+	    printers = conn.getPrinters(); \
+	    [print(f'Printer: {p} - {printers[p]["device-uri"]}') for p in printers]"
+
+print-test:
+	@echo "🖨️  Sending test page to default printer..."
+	@python -c "import cups; conn = cups.Connection(); \
+	    printers = conn.getPrinters(); \
+	    if printers: \
+	        printer = list(printers.keys())[0]; \
+	        job_id = conn.printFile(printer, '/dev/stdin', 'Test Print', {'raw': 'True'}); \
+	        print(f'✅ Sent test page to {printer} (Job ID: {job_id})'); \
+	    else: \
+	        print('❌ No printers found')" < <(echo 'Hello from DialogChain! This is a test print.')
 
 run-simple: setup-env
 	@echo "🚀 Running simple example..."

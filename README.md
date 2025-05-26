@@ -9,6 +9,110 @@
 [![Tests](https://github.com/dialogchain/python/actions/workflows/tests.yml/badge.svg)](https://github.com/dialogchain/python/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/dialogchain/python/graph/badge.svg?token=YOUR-TOKEN-HERE)](https://codecov.io/gh/dialogchain/python)
 
+## 🔍 Network Scanning & Printing
+
+DialogChain includes powerful network scanning capabilities to discover devices like cameras and printers on your local network.
+
+### Scan for Network Devices
+
+Scan your local network for various devices and services:
+
+```bash
+make scan-network
+```
+
+### Discover Cameras
+
+Find RTSP cameras on your network:
+
+```bash
+make scan-cameras
+```
+
+### Discover Printers
+
+List all available printers on your system:
+
+```bash
+make scan-printers
+```
+
+### Print a Test Page
+
+Send a test page to your default printer:
+
+```bash
+make print-test
+```
+
+### Using the Network Scanner in Python
+
+You can also use the network scanner directly in your Python code:
+
+```python
+from dialogchain.scanner import NetworkScanner
+import asyncio
+
+async def scan_network():
+    scanner = NetworkScanner()
+    
+    # Scan for all services
+    services = await scanner.scan_network()
+    
+    # Or scan for specific service types
+    cameras = await scanner.scan_network(service_types=['rtsp'])
+    
+    for service in services:
+        print(f"{service.ip}:{service.port} - {service.service} ({service.banner})")
+
+# Run the scan
+asyncio.run(scan_network())
+```
+
+## 🖨️ Printing Support
+
+DialogChain includes basic printing capabilities using the CUPS (Common Unix Printing System) interface.
+
+### Print Text
+
+```python
+import cups
+
+def print_text(text, printer_name=None):
+    conn = cups.Connection()
+    printers = conn.getPrinters()
+    
+    if not printers:
+        print("No printers available")
+        return
+        
+    printer = printer_name or list(printers.keys())[0]
+    job_id = conn.printFile(printer, "/dev/stdin", "DialogChain Print", {"raw": "True"}, text)
+    print(f"Sent print job {job_id} to {printer}")
+
+# Example usage
+print_text("Hello from DialogChain!")
+```
+
+### Print from File
+
+```python
+def print_file(file_path, printer_name=None):
+    conn = cups.Connection()
+    printers = conn.getPrinters()
+    
+    if not printers:
+        print("No printers available")
+        return
+        
+    printer = printer_name or list(printers.keys())[0]
+    job_id = conn.printFile(printer, file_path, "Document Print", {})
+    print(f"Sent print job {job_id} to {printer}")
+
+# Example usage
+print_file("document.pdf")
+```
+
 ## 📦 Installation
 
 ### Prerequisites
