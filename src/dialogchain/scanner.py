@@ -6,8 +6,10 @@ import asyncio
 import ipaddress
 import socket
 import nmap
-from typing import List, Dict, Any, Optional, Tuple
+import cv2
+from typing import List, Dict, Any, Optional, Tuple, Callable
 from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
 
 @dataclass
 class NetworkService:
@@ -52,6 +54,7 @@ class NetworkScanner:
         self.timeout = timeout
         self.max_workers = max_workers
         self.nm = nmap.PortScanner()
+        self.executor = ThreadPoolExecutor(max_workers=max_workers)
     
     async def scan_network(self, network: str = '192.168.1.0/24', 
                          ports: Optional[List[int]] = None,
@@ -104,6 +107,34 @@ class NetworkScanner:
     async def scan_email_servers(self, network: str = '192.168.1.0/24') -> List[NetworkService]:
         """Scan for email servers (SMTP, IMAP) on the network."""
         return await self.scan_network(network, service_types=['smtp', 'smtps', 'imap', 'imaps'])
+        
+    async def _run_in_executor(self, func: Callable, *args) -> Any:
+        """Run a function in the thread pool."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(self.executor, func, *args)
+    
+    async def check_rtsp_stream(self, ip: str, port: int = 554, timeout: float = 2.0) -> bool:
+        """Check if an RTSP stream is accessible using OpenCV."""
+        rtsp_url = f"rtsp://{ip}:{port}"
+        
+        def _check() -> bool:
+            cap = None
+            try:
+                cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
+                cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('H', '2', '6', '4'))
+                cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, int(timeout * 1000))
+                cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, int(timeout * 1000))
+                return cap.isOpened() and cap.grab()
+            except Exception:
+                return False
+            finally:
+                if cap is not None:
+                    cap.release()
+        
+        try:
+            return await self._run_in_executor(_check)
+        except Exception:
+            return False
 
     async def check_rtsp_stream(self, ip: str, port: int = 554, timeout: float = 2.0) -> bool:
         """Check if an RTSP stream is accessible."""
