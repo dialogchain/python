@@ -12,6 +12,7 @@ class HTTPSource:
     def __init__(self, url: str):
         self.url = url
         self.session = None
+        self._data_received = False
     
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
@@ -29,9 +30,12 @@ class HTTPSource:
         async with self.session.get(self.url) as response:
             if response.status == 200:
                 data = await response.json()
-                return {'data': data, 'metadata': {'url': self.url, 'status': response.status}}
+                return [{'data': data, 'metadata': {'url': self.url, 'status': response.status}}]
             else:
-                return {'error': f"HTTP {response.status}", 'metadata': {'url': self.url, 'status': response.status}}
+                return [{'error': f"HTTP {response.status}", 'metadata': {'url': self.url, 'status': response.status}}]
+        
+        # Return an empty list if no data was received
+        return []
 
 # Patch the engine to use our test HTTPSource
 @pytest.fixture(autouse=True)
