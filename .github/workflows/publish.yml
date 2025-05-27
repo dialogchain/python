@@ -37,15 +37,23 @@ jobs:
     
     - name: Install dependencies
       run: |
-        # Generate lock file if it doesn't exist
+        # Check for lock file and generate if needed
         if [ ! -f poetry.lock ]; then
           echo "No poetry.lock found, generating one..."
+          # First install without lock file to resolve dependencies
+          poetry install --no-dev --no-interaction --no-ansi -v --no-root
+          # Then generate the lock file
           poetry lock --no-update
         fi
         
-        # Install dependencies
+        # Install dependencies with the lock file
+        echo "Installing dependencies..."
         poetry install --no-dev --no-interaction --no-ansi -v
+        
+        # Show environment info for debugging
         poetry env info
+        echo "Installed packages:"
+        poetry show --tree
     
     - name: Build and publish
       env:
