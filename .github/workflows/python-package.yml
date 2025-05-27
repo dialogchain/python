@@ -20,7 +20,14 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-        cache: 'poetry'
+      
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
 
     - name: Install system dependencies
       run: |
@@ -44,10 +51,20 @@ jobs:
 
     - name: Install dependencies
       run: |
-        # Install with verbose output for better debugging
-        poetry install --no-interaction --no-ansi -v
+        echo "=== Installing dependencies ==="
+        # Check if poetry.lock exists
+        if [ -f poetry.lock ]; then
+          echo "Using existing poetry.lock"
+          poetry install --no-interaction --no-ansi -v
+        else
+          echo "No poetry.lock found, installing without lock file"
+          poetry install --no-interaction --no-ansi -v --no-lock
+        fi
         # Verify the environment
+        echo "\n=== Environment information ==="
         poetry env info
+        echo "\n=== Installed packages ==="
+        poetry show --tree || echo "Failed to show package tree"
 
     - name: Run tests
       run: |
