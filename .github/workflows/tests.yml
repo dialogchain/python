@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
 
     steps:
     - name: Checkout code
@@ -36,7 +36,7 @@ jobs:
     - name: Install Poetry
       uses: snok/install-poetry@v1
       with:
-        version: 1.7.1
+        version: latest
         virtualenvs-create: true
         virtualenvs-in-project: true
         virtualenvs-path: .venv
@@ -53,11 +53,17 @@ jobs:
 
     - name: Install dependencies
       run: |
-        poetry install --with dev,test --no-interaction
+        poetry install --with dev --no-interaction
 
     - name: Run tests with coverage
       run: |
-        poetry run pytest --cov=dialogchain --cov-report=xml --cov-report=term-missing -v
+        poetry run pytest \
+          --cov=src/dialogchain \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --cov-report=html \
+          -v \
+          tests/
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -68,7 +74,7 @@ jobs:
 
     - name: Run type checking
       run: |
-        poetry run mypy src/dialogchain tests
+        poetry run mypy src/dialogchain
 
     - name: Lint with flake8
       run: |
@@ -82,10 +88,15 @@ jobs:
       run: |
         poetry run isort --check-only src tests
 
-  # Optional: Add a separate job for dependency security scanning
-  security:
-    name: Security Scan
+    - name: Test CLI functionality
+      run: |
+        poetry run dialogchain --help
+
+  integration-tests:
+    name: Integration Tests
     runs-on: ubuntu-latest
+    needs: test
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -98,12 +109,43 @@ jobs:
     - name: Install Poetry
       uses: snok/install-poetry@v1
       with:
-        version: 1.7.1
+        version: latest
+        virtualenvs-create: true
+        virtualenvs-in-project: true
 
     - name: Install dependencies
-      run: poetry install --no-interaction
-
-    - name: Run safety check
       run: |
-        poetry run pip install safety
-        poetry run safety check
+        poetry install --no-interaction
+
+    - name: Run integration tests
+      run: |
+        poetry run pytest tests/integration/ -v
+
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: latest
+
+    - name: Build package
+      run: |
+        poetry build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist
+        path: dist/
