@@ -130,7 +130,8 @@ class FilterProcessor(Processor):
 
         except Exception as e:
             print(f"❌ Filter processor error: {e}")
-            return None  # Filter out on error to be safe
+            # Pass through the message on error as per test expectation
+            return message
 
     def _evaluate_condition(self, condition: str, context: Dict) -> bool:
         """
@@ -145,22 +146,18 @@ class FilterProcessor(Processor):
             
         Returns:
             bool: The result of the condition evaluation
-        """
-        try:
-            # First, render any template variables in the condition
-            from jinja2 import Template
-            template = Template(condition)
-            rendered_condition = template.render(**context)
             
-            # Then evaluate the rendered condition as a Python expression
-            # We use a safe evaluation context with only the context variables
-            return eval(rendered_condition, {"__builtins__": {}}, context)
-        except Exception as e:
-            print(f"❌ Condition evaluation error: {e}, condition: {condition}")
-            # In case of error, return False to filter out the message
-            # but store the error in the context for debugging
-            context['_filter_error'] = str(e)
-            return False
+        Raises:
+            Exception: If there's an error evaluating the condition
+        """
+        # First, render any template variables in the condition
+        from jinja2 import Template
+        template = Template(condition)
+        rendered_condition = template.render(**context)
+        
+        # Then evaluate the rendered condition as a Python expression
+        # We use a safe evaluation context with only the context variables
+        return eval(rendered_condition, {"__builtins__": {}}, context)
 
 
 class TransformProcessor(Processor):
