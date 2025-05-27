@@ -1,12 +1,11 @@
-"""
-Integration tests for HTTP connector using mock endpoints
-"""
-import pytest
-import asyncio
+"""Integration tests for HTTP connector using mock endpoints."""
+
+from unittest.mock import MagicMock, patch
+
 import aiohttp
-import json
+import pytest
 from aiohttp import web
-from unittest.mock import patch, MagicMock
+
 from dialogchain.connectors import HTTPDestination
 
 
