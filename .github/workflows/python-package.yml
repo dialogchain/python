@@ -14,144 +14,40 @@ jobs:
         python-version: ['3.9', '3.10', '3.11']
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-      
-    - name: Cache pip packages
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y python3-venv
 
     - name: Install Poetry
-      run: |
-        echo "=== Installing Poetry ==="
-        # Uninstall any existing Poetry installations
-        pip uninstall -y poetry || true
-        pip uninstall -y poetry-core || true
-        pip uninstall -y poetry-plugin-export || true
-        
-        # Clear Poetry cache and config
-        rm -rf ~/.cache/pypoetry
-        rm -rf ~/.config/pypoetry
-        
-        # Install specific version of Poetry directly using pipx
-        python -m pip install --user pipx
-        python -m pipx ensurepath
-        pipx install "poetry==1.5.1"
-        
-        # Add Poetry to PATH
-        echo "$(python -m site --user-base)/bin" >> $GITHUB_PATH
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
-        
-        # Verify installation
-        which poetry || { echo "Poetry not found in PATH"; exit 1; }
-        poetry --version || { echo "Poetry version check failed"; exit 1; }
+      uses: snok/install-poetry@v1
+      with:
+        version: 1.6.1
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        virtualenvs-path: .venv
+        installer-parallel: true
 
-    - name: Verify pyproject.toml
-      run: |
-        echo "=== Verifying pyproject.toml ==="
-        echo "Current directory: $(pwd)"
-        echo "Directory contents:"
-        ls -la
-        
-        if [ ! -f pyproject.toml ]; then
-          echo "\n=== Creating minimal pyproject.toml ==="
-          cat > pyproject.toml << 'EOL'
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry]
-name = "dialogchain"
-version = "0.1.0"
-description = "DialogChain Python Package"
-authors = ["Your Name <your.email@example.com>"]
-
-[tool.poetry.dependencies]
-python = "^3.8"
-EOL
-          echo "\nCreated pyproject.toml with minimal configuration"
-        else
-          echo "\n=== Existing pyproject.toml ==="
-          cat pyproject.toml
-        fi
-        
-        if [ ! -f pyproject.toml ]; then
-          echo "Error: Failed to create pyproject.toml"
-          exit 1
-        fi
-    
-    - name: Configure Poetry
-      run: |
-        echo "=== Debugging Poetry Configuration ==="
-        echo "Current directory: $(pwd)"
-        echo "Python executable: $(which python)"
-        echo "Python version: $(python --version)"
-        
-        # Verify Python installation
-        python -c "import sys; print(f'Python {sys.version}')" || \
-          { echo "Python verification failed"; exit 1; }
-        
-        # Verify Poetry is installed and in PATH
-        which poetry || { echo "Poetry not found in PATH"; exit 1; }
-        echo "Poetry version: $(poetry --version)"
-        
-        # Set Poetry configuration using environment variables
-        export POETRY_VIRTUALENVS_CREATE=true
-        export POETRY_VIRTUALENVS_IN_PROJECT=true
-        
-        # Debug: Show current directory contents
-        echo "\n=== Directory Contents ==="
-        ls -la
-        
-        # Debug: Show pyproject.toml contents
-        echo "\n=== pyproject.toml Contents ==="
-        cat pyproject.toml || { echo "Failed to read pyproject.toml"; exit 1; }
-        
-        # Configure Poetry
-        echo "\n=== Configuring Poetry ==="
-        poetry config virtualenvs.create true
-        poetry config virtualenvs.in-project true
-        
-        # Verify configuration
-        echo "\n=== Current Poetry Configuration ==="
-        poetry config --list || { echo "Failed to list Poetry configuration"; exit 1; }
-        
-        echo "\n=== Poetry Environment ==="
-        poetry env info || { echo "Failed to get Poetry environment info"; exit 1; }
+    - name: Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          venv-${{ runner.os }}-${{ matrix.python-version }}-
 
     - name: Install dependencies
-      run: |
-        echo "=== Installing dependencies ==="
-        # Check if poetry.lock exists
-        if [ -f poetry.lock ]; then
-          echo "Using existing poetry.lock"
-          poetry install --no-interaction --no-ansi -v
-        else
-          echo "No poetry.lock found, installing without lock file"
-          poetry install --no-interaction --no-ansi -v --no-lock
-        fi
-        # Verify the environment
-        echo "\n=== Environment information ==="
-        poetry env info
-        echo "\n=== Installed packages ==="
-        poetry show --tree || echo "Failed to show package tree"
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install --no-interaction --no-root
+
+    - name: Install project
+      run: poetry install --no-interaction
 
     - name: Run tests
-      run: |
-        poetry run pytest tests/ -v
+      run: poetry run pytest tests/ -v --tb=short
 
     - name: Lint with flake8
       run: |
