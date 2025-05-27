@@ -32,8 +32,8 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-        # Only enable poetry cache if lock file exists
-        cache: ${{ fromJSON('{"poetry": "**/poetry.lock"}')[github.workspace + '/poetry.lock'] ? 'poetry' : 'pip' }}
+        # Use pip cache by default to avoid poetry.lock dependency
+        cache: 'pip'
     
     - name: Debug system info
       run: |
