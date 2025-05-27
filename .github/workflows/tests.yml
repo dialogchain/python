@@ -24,117 +24,86 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Fetch all history for version tagging
-    
+        fetch-depth: 0
+
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-      
-    - name: Cache pip packages
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    
-    - name: Debug system info
-      run: |
-        echo "=== System Information ==="
-        uname -a
-        echo "Python version: $(python --version)"
-        echo "pip version: $(pip --version)"
-        echo "==========================="
-
-    - name: Install system dependencies
-      run: |
-        echo "=== Installing system dependencies ==="
-        sudo apt-get update
-        sudo apt-get install -y python3-venv python3-dev
-        echo "======================================"
 
     - name: Install Poetry
-      run: |
-        echo "=== Installing Poetry ==="
-        python -m pip install --upgrade pip
-        python -m pip install --user "poetry==1.5.1"
-        echo "Poetry version: $(python -m poetry --version)"
-        echo "Adding Poetry to PATH"
-        echo "$(python -m site --user-base)/bin" >> $GITHUB_PATH
-        echo "========================"
-    
-    - name: Configure Poetry
-      run: |
-        echo "=== Configuring Poetry ==="
-        python -m poetry config virtualenvs.create true
-        python -m poetry config virtualenvs.in-project true
-        python -m poetry config --list
-        echo "Poetry version: $(python -m poetry --version)"
-        echo "Python executable: $(which python)"
-        echo "=========================="
-    
+      uses: snok/install-poetry@v1
+      with:
+        version: 1.7.1
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        virtualenvs-path: .venv
+
+    - name: Cache Poetry dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          .venv
+          ~/.cache/pypoetry
+        key: poetry-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          poetry-${{ runner.os }}-${{ matrix.python-version }}-
+
     - name: Install dependencies
       run: |
-        set -x  # Enable debug mode
-        echo "=== Installing dependencies ==="
-        echo "Current directory: $(pwd)"
-        echo "Directory contents:"
-        ls -la
-        
-        # First install only the project dependencies (without lock file)
-        echo "\n=== Installing project dependencies (initial pass) ==="
-        python -m poetry install --no-interaction --no-ansi -v --only main || \
-          { echo "Initial dependency installation failed"; exit 1; }
-        
-        # Now generate the lock file if it doesn't exist
-        if [ ! -f poetry.lock ]; then
-          echo "\n=== Generating poetry.lock ==="
-          python -m poetry lock --no-update || \
-            { echo "Failed to generate poetry.lock"; exit 1; }
-        fi
-        
-        # Install all dependencies with the lock file
-        echo "\n=== Installing all dependencies ==="
-        python -m poetry install --with dev,test --no-interaction --no-ansi -v || \
-          { echo "poetry install with dev/test failed"; exit 1; }
-        
-        # Verify the environment
-        echo "\n=== Environment information ==="
-        python -m poetry env info
-        
-        echo "\n=== Installed packages ==="
-        python -m poetry show --tree || echo "Failed to show package tree"
-        
-        echo "\n=== Python path ==="
-        python -c "import sys; print('\n'.join(sys.path))"
-        echo "============================"
-    
+        poetry install --with dev,test --no-interaction
+
     - name: Run tests with coverage
       run: |
-        poetry run pytest --cov=dialogchain --cov-report=xml
-    
+        poetry run pytest --cov=dialogchain --cov-report=xml --cov-report=term-missing -v
+
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         file: ./coverage.xml
         fail_ci_if_error: false
-    
+
     - name: Run type checking
       run: |
         poetry run mypy src/dialogchain tests
-    
+
     - name: Lint with flake8
       run: |
         poetry run flake8 src/dialogchain tests
-    
+
     - name: Check formatting with black
       run: |
         poetry run black --check src tests
-    
+
     - name: Check import sorting with isort
       run: |
         poetry run isort --check-only src tests
+
+  # Optional: Add a separate job for dependency security scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: 1.7.1
+
+    - name: Install dependencies
+      run: poetry install --no-interaction
+
+    - name: Run safety check
+      run: |
+        poetry run pip install safety
+        poetry run safety check
