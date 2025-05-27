@@ -30,30 +30,62 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     
+    - name: Debug system info
+      run: |
+        echo "=== System Information ==="
+        uname -a
+        echo "Python version: $(python --version)"
+        echo "pip version: $(pip --version)"
+        echo "==========================="
+
     - name: Install system dependencies
       run: |
+        echo "=== Installing system dependencies ==="
         sudo apt-get update
-        sudo apt-get install -y python3-venv
+        sudo apt-get install -y python3-venv python3-dev
+        echo "======================================"
 
     - name: Install Poetry
       run: |
-        pip install "poetry==1.5.1"
+        echo "=== Installing Poetry ==="
+        python -m pip install --upgrade pip
+        python -m pip install --user "poetry==1.5.1"
+        echo "Poetry version: $(python -m poetry --version)"
+        echo "Adding Poetry to PATH"
         echo "$(python -m site --user-base)/bin" >> $GITHUB_PATH
+        echo "========================"
     
     - name: Configure Poetry
       run: |
-        poetry config virtualenvs.create true
-        poetry config virtualenvs.in-project true
-        poetry config --list
-        poetry --version
+        echo "=== Configuring Poetry ==="
+        python -m poetry config virtualenvs.create true
+        python -m poetry config virtualenvs.in-project true
+        python -m poetry config --list
+        echo "Poetry version: $(python -m poetry --version)"
+        echo "Python executable: $(which python)"
+        echo "=========================="
     
     - name: Install dependencies
       run: |
-        # Install dependencies with verbose output for better debugging
-        poetry install --with dev,test --no-interaction --no-ansi -v
-        poetry env info
-        echo "Installed packages:"
-        poetry show --tree
+        set -x  # Enable debug mode
+        echo "=== Installing dependencies ==="
+        echo "Current directory: $(pwd)"
+        echo "Directory contents:"
+        ls -la
+        
+        echo "\n=== Running poetry install ==="
+        python -m poetry install --with dev,test --no-interaction --no-ansi -v || \
+          { echo "poetry install failed"; exit 1; }
+        
+        echo "\n=== Environment information ==="
+        python -m poetry env info
+        
+        echo "\n=== Installed packages ==="
+        python -m poetry show --tree || echo "Failed to show package tree"
+        
+        echo "\n=== Python path ==="
+        python -c "import sys; print('\n'.join(sys.path))"
+        echo "============================"
     
     - name: Run tests with coverage
       run: |
