@@ -10,25 +10,31 @@ from dialogchain.connectors import HTTPDestination
 
 
 class TestHTTPConnectorIntegration:
-    """Integration tests for HTTP connector with mock endpoints"""
+    """Integration tests for HTTP connector with mock endpoints."""
 
     @pytest.fixture
-    def mock_http_server(self, unused_tcp_port):
-        """Fixture to create a mock HTTP server"""
-        from aiohttp import web
-
-        async def handle_echo(request):
+    def mock_http_server(self, unused_tcp_port: int) -> tuple[web.AppRunner, str]:
+        """Create a mock HTTP server for testing.
+        
+        Args:
+            unused_tcp_port: A free port number provided by pytest.
+            
+        Returns:
+            A tuple containing the web server runner and its URL.
+        """
+        async def handle_echo(request: web.Request) -> web.Response:
+            """Handle echo requests by returning the received JSON data."""
             data = await request.json()
             return web.json_response({"echo": data})
-
+            
         app = web.Application()
         app.router.add_post("/echo", handle_echo)
-
+        
         runner = web.AppRunner(app)
         return runner, f"http://localhost:{unused_tcp_port}"
 
     @pytest.mark.asyncio
-    async def test_http_connector_with_mock_server(self, mock_http_server):
+    async def test_http_connector_with_mock_server(self, mock_http_server: tuple[web.AppRunner, str]) -> None:
         """Test HTTP connector with a mock HTTP server"""
         runner, server_url = mock_http_server
 
