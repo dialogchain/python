@@ -73,6 +73,13 @@ jobs:
         echo "Directory contents:"
         ls -la
         
+        # Check if poetry.lock exists, generate it if not
+        if [ ! -f poetry.lock ]; then
+          echo "\n=== No poetry.lock found, generating lock file ==="
+          python -m poetry lock --no-update || \
+            { echo "Failed to generate poetry.lock"; exit 1; }
+        fi
+        
         echo "\n=== Running poetry install ==="
         python -m poetry install --with dev,test --no-interaction --no-ansi -v || \
           { echo "poetry install failed"; exit 1; }
