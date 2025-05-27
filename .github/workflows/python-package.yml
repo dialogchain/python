@@ -68,7 +68,7 @@ jobs:
         
         if [ ! -f pyproject.toml ]; then
           echo "\n=== Creating minimal pyproject.toml ==="
-          cat > pyproject.toml <<EOL
+          cat > pyproject.toml << 'EOL'
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
