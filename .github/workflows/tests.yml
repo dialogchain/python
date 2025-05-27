@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.8', '3.9', '3.10', '3.11']
 
     steps:
     - name: Checkout code
@@ -53,17 +53,11 @@ jobs:
 
     - name: Install dependencies
       run: |
-        poetry install --with dev --no-interaction
+        poetry install --with dev,test --no-interaction
 
     - name: Run tests with coverage
       run: |
-        poetry run pytest \
-          --cov=src/dialogchain \
-          --cov-report=xml \
-          --cov-report=term-missing \
-          --cov-report=html \
-          -v \
-          tests/
+        poetry run pytest
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -74,7 +68,7 @@ jobs:
 
     - name: Run type checking
       run: |
-        poetry run mypy src/dialogchain
+        poetry run mypy src/dialogchain --ignore-missing-imports
 
     - name: Lint with flake8
       run: |

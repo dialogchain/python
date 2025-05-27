@@ -10,6 +10,21 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+dist/
+build/
+*.egg-info/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
 # C extensions
 *.so
 
