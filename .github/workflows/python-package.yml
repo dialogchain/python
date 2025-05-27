@@ -59,22 +59,13 @@ jobs:
         which poetry || { echo "Poetry not found in PATH"; exit 1; }
         poetry --version || { echo "Poetry version check failed"; exit 1; }
 
-    - name: Configure Poetry
+    - name: Verify pyproject.toml
       run: |
-        echo "=== Configuring Poetry ==="
+        echo "=== Verifying pyproject.toml ==="
         echo "Current directory: $(pwd)"
-        echo "Python executable: $(which python)"
-        echo "Python version: $(python --version)"
+        echo "Directory contents:"
+        ls -la
         
-        # Verify Python installation
-        python -c "import sys; print(f'Python {sys.version}')" || \
-          { echo "Python verification failed"; exit 1; }
-        
-        # Verify Poetry is installed and in PATH
-        which poetry || { echo "Poetry not found in PATH"; exit 1; }
-        poetry --version || { echo "Poetry version check failed"; exit 1; }
-        
-        # Create a minimal pyproject.toml if it doesn't exist
         if [ ! -f pyproject.toml ]; then
           echo "\n=== Creating minimal pyproject.toml ==="
           cat > pyproject.toml <<EOL
@@ -91,26 +82,55 @@ authors = ["Your Name <your.email@example.com>"]
 [tool.poetry.dependencies]
 python = "^3.8"
 EOL
+          echo "\nCreated pyproject.toml with minimal configuration"
+        else
+          echo "\n=== Existing pyproject.toml ==="
+          cat pyproject.toml
         fi
         
-        # Configure Poetry using environment variables
+        if [ ! -f pyproject.toml ]; then
+          echo "Error: Failed to create pyproject.toml"
+          exit 1
+        fi
+    
+    - name: Configure Poetry
+      run: |
+        echo "=== Debugging Poetry Configuration ==="
+        echo "Current directory: $(pwd)"
+        echo "Python executable: $(which python)"
+        echo "Python version: $(python --version)"
+        
+        # Verify Python installation
+        python -c "import sys; print(f'Python {sys.version}')" || \
+          { echo "Python verification failed"; exit 1; }
+        
+        # Verify Poetry is installed and in PATH
+        which poetry || { echo "Poetry not found in PATH"; exit 1; }
+        echo "Poetry version: $(poetry --version)"
+        
+        # Set Poetry configuration using environment variables
         export POETRY_VIRTUALENVS_CREATE=true
         export POETRY_VIRTUALENVS_IN_PROJECT=true
         
-        # Verify pyproject.toml exists
-        if [ ! -f pyproject.toml ]; then
-          echo "Error: pyproject.toml not found after creation attempt"
-          exit 1
-        fi
+        # Debug: Show current directory contents
+        echo "\n=== Directory Contents ==="
+        ls -la
         
-        # Basic Poetry commands with full path
-        echo "\n=== Running Poetry commands ==="
-        /opt/hostedtoolcache/Python/3.11.12/x64/bin/poetry config --list || \
-          { echo "Poetry config command failed"; exit 1; }
+        # Debug: Show pyproject.toml contents
+        echo "\n=== pyproject.toml Contents ==="
+        cat pyproject.toml || { echo "Failed to read pyproject.toml"; exit 1; }
         
-        echo "\n=== Poetry environment info ==="
-        /opt/hostedtoolcache/Python/3.11.12/x64/bin/poetry env info || \
-          { echo "Poetry env info failed"; exit 1; }
+        # Configure Poetry
+        echo "\n=== Configuring Poetry ==="
+        poetry config virtualenvs.create true
+        poetry config virtualenvs.in-project true
+        
+        # Verify configuration
+        echo "\n=== Current Poetry Configuration ==="
+        poetry config --list || { echo "Failed to list Poetry configuration"; exit 1; }
+        
+        echo "\n=== Poetry Environment ==="
+        poetry env info || { echo "Failed to get Poetry environment info"; exit 1; }
 
     - name: Install dependencies
       run: |
