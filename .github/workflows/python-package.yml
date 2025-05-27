@@ -42,12 +42,39 @@ jobs:
 
     - name: Configure Poetry
       run: |
-        # Configure Poetry with explicit paths
-        poetry config virtualenvs.create true
-        poetry config virtualenvs.in-project true
-        poetry config virtualenvs.path .venv
-        poetry config --list
-        poetry --version
+        echo "=== Configuring Poetry ==="
+        echo "Python executable: $(which python)"
+        echo "Python version: $(python --version)"
+        echo "Poetry version: $(poetry --version || echo 'Not available')"
+        
+        # Verify Python environment
+        echo "\n=== Python Environment ==="
+        python -c "import sys; print('\n'.join(f'{k}: {v}' for k, v in {
+            'Executable': sys.executable,
+            'Version': sys.version,
+            'Prefix': sys.prefix,
+            'Base Prefix': sys.base_prefix,
+            'Exec Prefix': sys.exec_prefix,
+            'Path': '\n  ' + '\n  '.join(sys.path)
+        }.items()))"
+        
+        # Configure Poetry with error handling
+        echo "\n=== Configuring Poetry ==="
+        python -m poetry config virtualenvs.create true || \
+          { echo "Failed to set virtualenvs.create"; exit 1; }
+        python -m poetry config virtualenvs.in-project true || \
+          { echo "Failed to set virtualenvs.in-project"; exit 1; }
+        python -m poetry config virtualenvs.path .venv || \
+          { echo "Failed to set virtualenvs.path"; exit 1; }
+          
+        # Verify configuration
+        echo "\n=== Current Poetry Configuration ==="
+        python -m poetry config --list || \
+          { echo "Failed to list Poetry configuration"; exit 1; }
+        
+        echo "\n=== Poetry Environment ==="
+        python -m poetry env info || \
+          { echo "Failed to get Poetry environment info"; exit 1; }
 
     - name: Install dependencies
       run: |
