@@ -5,6 +5,7 @@ import pytest
 import asyncio
 import aiohttp
 import json
+from aiohttp import web
 from unittest.mock import patch, MagicMock
 from dialogchain.connectors import HTTPDestination
 
