@@ -26,20 +26,22 @@ except ImportError:
 def load_config():
     """Load configuration from environment variables set by Camel Router"""
     return {
-        'confidence_threshold': float(os.getenv('CONFIG_CONFIDENCE_THRESHOLD', '0.6')),
-        'model': os.getenv('CONFIG_MODEL', 'yolov8n.pt'),
-        'target_objects': os.getenv('CONFIG_TARGET_OBJECTS', 'person,car').split(',')
+        "confidence_threshold": float(os.getenv("CONFIG_CONFIDENCE_THRESHOLD", "0.6")),
+        "model": os.getenv("CONFIG_MODEL", "yolov8n.pt"),
+        "target_objects": os.getenv("CONFIG_TARGET_OBJECTS", "person,car").split(","),
     }
 
 
 def dummy_detection(frame_data):
     """Dummy detection for when YOLO is not available"""
-    return [{
-        'object_type': 'person',
-        'confidence': 0.85,
-        'bbox': [100, 100, 200, 200],
-        'position': 'center-center'
-    }]
+    return [
+        {
+            "object_type": "person",
+            "confidence": 0.85,
+            "bbox": [100, 100, 200, 200],
+            "position": "center-center",
+        }
+    ]
 
 
 def yolo_detection(frame_data, config):
@@ -47,7 +49,7 @@ def yolo_detection(frame_data, config):
     if not HAS_YOLO:
         return dummy_detection(frame_data)
 
-    model = YOLO(config['model'])
+    model = YOLO(config["model"])
 
     # Decode frame if it's base64 encoded
     if isinstance(frame_data, str):
@@ -62,19 +64,19 @@ def yolo_detection(frame_data, config):
     results = model(frame)
     detections = []
 
-    class_mapping = {0: 'person', 2: 'car', 15: 'cat', 16: 'dog'}
+    class_mapping = {0: "person", 2: "car", 15: "cat", 16: "dog"}
 
     for result in results:
         boxes = result.boxes
         if boxes is not None:
             for box in boxes:
                 confidence = float(box.conf[0])
-                if confidence > config['confidence_threshold']:
+                if confidence > config["confidence_threshold"]:
                     class_id = int(box.cls[0])
 
                     if class_id in class_mapping:
                         object_type = class_mapping[class_id]
-                        if object_type in config['target_objects']:
+                        if object_type in config["target_objects"]:
                             bbox = box.xyxy[0].tolist()
 
                             # Calculate position
@@ -82,12 +84,14 @@ def yolo_detection(frame_data, config):
                             center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
                             position = get_position(center_x, center_y)
 
-                            detections.append({
-                                'object_type': object_type,
-                                'confidence': confidence,
-                                'bbox': bbox,
-                                'position': position
-                            })
+                            detections.append(
+                                {
+                                    "object_type": object_type,
+                                    "confidence": confidence,
+                                    "bbox": bbox,
+                                    "position": position,
+                                }
+                            )
 
     return detections
 
@@ -113,9 +117,9 @@ def get_position(x, y):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Object Detection Script')
-    parser.add_argument('--input', required=True, help='Input JSON file')
-    parser.add_argument('--output', help='Output JSON file (optional)')
+    parser = argparse.ArgumentParser(description="Object Detection Script")
+    parser.add_argument("--input", required=True, help="Input JSON file")
+    parser.add_argument("--output", help="Output JSON file (optional)")
 
     args = parser.parse_args()
 
@@ -124,38 +128,35 @@ def main():
 
     try:
         # Read input data
-        with open(args.input, 'r') as f:
+        with open(args.input, "r") as f:
             input_data = json.load(f)
 
         # Extract frame data
-        frame_data = input_data.get('frame') or input_data.get('data')
+        frame_data = input_data.get("frame") or input_data.get("data")
 
         # Perform detection
         detections = yolo_detection(frame_data, config)
 
         # Prepare output
         output = {
-            'timestamp': input_data.get('timestamp'),
-            'source': input_data.get('source'),
-            'detections': detections,
-            'detection_count': len(detections)
+            "timestamp": input_data.get("timestamp"),
+            "source": input_data.get("source"),
+            "detections": detections,
+            "detection_count": len(detections),
         }
 
         # Output results
         if args.output:
-            with open(args.output, 'w') as f:
+            with open(args.output, "w") as f:
                 json.dump(output, f, indent=2)
         else:
             print(json.dumps(output, indent=2))
 
     except Exception as e:
-        error_output = {
-            'error': str(e),
-            'success': False
-        }
+        error_output = {"error": str(e), "success": False}
         print(json.dumps(error_output, indent=2), file=sys.stderr)
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

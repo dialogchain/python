@@ -33,6 +33,7 @@ class Destination(ABC):
 
 # ============= SOURCES =============
 
+
 class RTSPSource(Source):
     """RTSP camera source"""
 
@@ -67,7 +68,7 @@ class RTSPSource(Source):
                             "timestamp": datetime.now().isoformat(),
                             "frame": frame,
                             "frame_count": frame_count,
-                            "source": self.uri
+                            "source": self.uri,
                         }
 
                     frame_count += 1
@@ -80,7 +81,7 @@ class RTSPSource(Source):
                 else:
                     raise
             finally:
-                if 'cap' in locals():
+                if "cap" in locals():
                     cap.release()
 
 
@@ -96,36 +97,40 @@ class TimerSource(Source):
             yield {
                 "type": "timer_event",
                 "timestamp": datetime.now().isoformat(),
-                "interval": self.interval
+                "interval": self.interval,
             }
             await asyncio.sleep(self.interval)
 
     def _parse_interval(self, interval_str: str) -> float:
         """Parse interval string to seconds
-        
+
         Args:
             interval_str: String in format '1s' (seconds), '1m' (minutes), or '1h' (hours)
-            
+
         Returns:
             float: Interval in seconds
-            
+
         Raises:
             ValueError: If interval_str is empty or invalid
         """
         if not interval_str or not isinstance(interval_str, str):
-            raise ValueError(f"Invalid interval: '{interval_str}'. Must be a non-empty string.")
-            
+            raise ValueError(
+                f"Invalid interval: '{interval_str}'. Must be a non-empty string."
+            )
+
         try:
-            if interval_str.endswith('s'):
+            if interval_str.endswith("s"):
                 return float(interval_str[:-1])
-            elif interval_str.endswith('m'):
+            elif interval_str.endswith("m"):
                 return float(interval_str[:-1]) * 60
-            elif interval_str.endswith('h'):
+            elif interval_str.endswith("h"):
                 return float(interval_str[:-1]) * 3600
             else:
                 return float(interval_str)
         except (ValueError, TypeError) as e:
-            raise ValueError(f"Invalid interval format: '{interval_str}'. Expected format: '1s', '1m', or '1h'.") from e
+            raise ValueError(
+                f"Invalid interval format: '{interval_str}'. Expected format: '1s', '1m', or '1h'."
+            ) from e
 
 
 class GRPCSource(Source):
@@ -142,7 +147,7 @@ class GRPCSource(Source):
             yield {
                 "type": "grpc_message",
                 "timestamp": datetime.now().isoformat(),
-                "data": "placeholder"
+                "data": "placeholder",
             }
             await asyncio.sleep(1)
 
@@ -157,19 +162,20 @@ class FileSource(Source):
         """Watch file for changes"""
         # Basic file reading - could be enhanced with file watching
         try:
-            with open(self.path, 'r') as f:
+            with open(self.path, "r") as f:
                 content = f.read()
                 yield {
                     "type": "file_content",
                     "timestamp": datetime.now().isoformat(),
                     "path": self.path,
-                    "content": content
+                    "content": content,
                 }
         except Exception as e:
             print(f"❌ File source error: {e}")
 
 
 # ============= DESTINATIONS =============
+
 
 class EmailDestination(Destination):
     """Email destination using SMTP"""
@@ -180,19 +186,19 @@ class EmailDestination(Destination):
         self.port = parsed.port or 587
 
         query_params = parse_qs(parsed.query)
-        self.user = query_params.get('user', [''])[0]
-        self.password = query_params.get('password', [''])[0]
-        self.recipients = query_params.get('to', [''])
+        self.user = query_params.get("user", [""])[0]
+        self.password = query_params.get("password", [""])[0]
+        self.recipients = query_params.get("to", [""])
 
         if isinstance(self.recipients, list) and len(self.recipients) == 1:
-            self.recipients = self.recipients[0].split(',')
+            self.recipients = self.recipients[0].split(",")
 
     async def send(self, message: Any) -> None:
         """Send email"""
         try:
             msg = MIMEMultipart()
-            msg['From'] = self.user
-            msg['Subject'] = "Camel Router Alert"
+            msg["From"] = self.user
+            msg["Subject"] = "Camel Router Alert"
 
             # Format message
             if isinstance(message, dict):
@@ -200,16 +206,16 @@ class EmailDestination(Destination):
             else:
                 body = str(message)
 
-            msg.attach(MIMEText(body, 'plain'))
+            msg.attach(MIMEText(body, "plain"))
 
             server = smtplib.SMTP(self.server, self.port)
             server.starttls()
             server.login(self.user, self.password)
 
             for recipient in self.recipients:
-                msg['To'] = recipient.strip()
+                msg["To"] = recipient.strip()
                 server.send_message(msg)
-                del msg['To']
+                del msg["To"]
 
             server.quit()
             print(f"📧 Email sent to {len(self.recipients)} recipients")
@@ -233,7 +239,9 @@ class HTTPDestination(Destination):
                     if response.status == 200:
                         print(f"🌐 HTTP sent to {self.uri}")
                     else:
-                        print(f"❌ HTTP error {response.status}: {await response.text()}")
+                        print(
+                            f"❌ HTTP error {response.status}: {await response.text()}"
+                        )
         except Exception as e:
             print(f"❌ HTTP destination error: {e}")
 
@@ -245,7 +253,7 @@ class MQTTDestination(Destination):
         parsed = urlparse(uri)
         self.broker = parsed.hostname
         self.port = parsed.port or 1883
-        self.topic = parsed.path.lstrip('/')
+        self.topic = parsed.path.lstrip("/")
 
     async def send(self, message: Any) -> None:
         """Send MQTT message"""
@@ -269,7 +277,7 @@ class FileDestination(Destination):
         """Write to file"""
         try:
             content = json.dumps(message) if isinstance(message, dict) else str(message)
-            with open(self.path, 'a') as f:
+            with open(self.path, "a") as f:
                 f.write(f"{datetime.now().isoformat()}: {content}\n")
             print(f"📄 Written to {self.path}")
         except Exception as e:
@@ -282,7 +290,7 @@ class LogDestination(Destination):
     def __init__(self, uri: str):
         parsed = urlparse(uri)
         # For URIs like 'log://test.log', the path is in netloc
-        self.log_file = parsed.netloc if parsed.netloc else parsed.path.strip('/')
+        self.log_file = parsed.netloc if parsed.netloc else parsed.path.strip("/")
         # If both netloc and path are empty, set to None
         self.log_file = self.log_file if self.log_file else None
 
@@ -297,8 +305,8 @@ class LogDestination(Destination):
                 log_dir = os.path.dirname(self.log_file)
                 if log_dir and not os.path.exists(log_dir):
                     os.makedirs(log_dir, exist_ok=True)
-                    
-                with open(self.log_file, 'a', encoding='utf-8') as f:
+
+                with open(self.log_file, "a", encoding="utf-8") as f:
                     f.write(log_msg + "\n")
             except Exception as e:
                 print(f"❌ Log file error: {e}")

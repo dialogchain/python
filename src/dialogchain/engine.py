@@ -14,28 +14,28 @@ from .connectors import *
 def parse_uri(uri: str) -> Tuple[str, str]:
     """
     Parse a URI string into its scheme and path components.
-    
+
     Args:
         uri: The URI string to parse (e.g., 'timer:5s' or 'http://example.com')
-        
+
     Returns:
         A tuple of (scheme, path) where:
         - scheme is the URI scheme (e.g., 'timer', 'http')
         - path is the rest of the URI after the scheme
-        
+
     Example:
         >>> parse_uri('timer:5s')
         ('timer', '5s')
         >>> parse_uri('http://example.com/path')
         ('http', '//example.com/path')
     """
-    if '://' in uri:
+    if "://" in uri:
         # Handle standard URIs with ://
         parsed = urlparse(uri)
-        return parsed.scheme, uri.split('://', 1)[1]
-    elif ':' in uri:
+        return parsed.scheme, uri.split("://", 1)[1]
+    elif ":" in uri:
         # Handle simple URIs with just a scheme:path
-        scheme, path = uri.split(':', 1)
+        scheme, path = uri.split(":", 1)
         return scheme, path
     else:
         raise ValueError(f"Invalid URI format: {uri}")
@@ -45,13 +45,15 @@ class CamelRouterEngine:
     def __init__(self, config: Dict[str, Any], verbose: bool = False):
         self.config = config
         self.verbose = verbose
-        self.routes = config.get('routes', [])
+        self.routes = config.get("routes", [])
         self.running_processes = {}
-        
+
         # Validate the configuration on initialization
         errors = self.validate_config()
         if errors:
-            error_msg = "Invalid configuration:\n" + "\n".join(f"- {error}" for error in errors)
+            error_msg = "Invalid configuration:\n" + "\n".join(
+                f"- {error}" for error in errors
+            )
             raise ValueError(error_msg)
 
     def log(self, message: str):
@@ -72,7 +74,7 @@ class CamelRouterEngine:
         """Run specific route by name"""
         route_config = None
         for route in self.routes:
-            if route.get('name') == route_name:
+            if route.get("name") == route_name:
                 route_config = route
                 break
 
@@ -83,22 +85,22 @@ class CamelRouterEngine:
 
     async def run_route_config(self, route_config: Dict[str, Any]):
         """Run single route configuration"""
-        route_name = route_config.get('name', 'unnamed')
+        route_name = route_config.get("name", "unnamed")
         self.log(f"Starting route: {route_name}")
 
         try:
             # Parse source
-            from_uri = self.resolve_variables(route_config['from'])
+            from_uri = self.resolve_variables(route_config["from"])
             source = self.create_source(from_uri)
 
             # Parse processors
             processors = []
-            for proc_config in route_config.get('processors', []):
+            for proc_config in route_config.get("processors", []):
                 processor = self.create_processor(proc_config)
                 processors.append(processor)
 
             # Parse destinations
-            to_config = route_config['to']
+            to_config = route_config["to"]
             if isinstance(to_config, str):
                 to_config = [to_config]
 
@@ -131,9 +133,7 @@ class CamelRouterEngine:
                     # Send to all destinations
                     send_tasks = []
                     for destination in destinations:
-                        task = asyncio.create_task(
-                            destination.send(current_message)
-                        )
+                        task = asyncio.create_task(destination.send(current_message))
                         send_tasks.append(task)
 
                     await asyncio.gather(*send_tasks, return_exceptions=True)
@@ -146,33 +146,33 @@ class CamelRouterEngine:
         parsed = urlparse(uri)
         scheme = parsed.scheme.lower()
 
-        if scheme == 'rtsp':
+        if scheme == "rtsp":
             return RTSPSource(uri)
-        elif scheme == 'timer':
+        elif scheme == "timer":
             # For timer URIs, the interval can be in either the netloc or path
             # e.g., timer:5s, timer://5s, or timer:/5s
-            interval = parsed.netloc or parsed.path.lstrip('/')
+            interval = parsed.netloc or parsed.path.lstrip("/")
             if not interval:
                 raise ValueError(f"No interval specified in timer URI: {uri}")
             return TimerSource(interval)
-        elif scheme == 'grpc':
+        elif scheme == "grpc":
             return GRPCSource(uri)
-        elif scheme == 'file':
+        elif scheme == "file":
             return FileSource(parsed.path)
         else:
             raise ValueError(f"Unsupported source scheme: {scheme}")
 
     def create_processor(self, config: Dict[str, Any]):
         """Create processor from configuration"""
-        proc_type = config['type']
+        proc_type = config["type"]
 
-        if proc_type == 'external':
+        if proc_type == "external":
             return ExternalProcessor(config)
-        elif proc_type == 'filter':
+        elif proc_type == "filter":
             return FilterProcessor(config)
-        elif proc_type == 'transform':
+        elif proc_type == "transform":
             return TransformProcessor(config)
-        elif proc_type == 'aggregate':
+        elif proc_type == "aggregate":
             return AggregateProcessor(config)
         else:
             raise ValueError(f"Unsupported processor type: {proc_type}")
@@ -182,17 +182,17 @@ class CamelRouterEngine:
         parsed = urlparse(uri)
         scheme = parsed.scheme.lower()
 
-        if scheme == 'email':
+        if scheme == "email":
             return EmailDestination(uri)
-        elif scheme == 'http' or scheme == 'https':
+        elif scheme == "http" or scheme == "https":
             return HTTPDestination(uri)
-        elif scheme == 'mqtt':
+        elif scheme == "mqtt":
             return MQTTDestination(uri)
-        elif scheme == 'grpc':
+        elif scheme == "grpc":
             return GRPCDestination(uri)
-        elif scheme == 'file':
+        elif scheme == "file":
             return FileDestination(uri)
-        elif scheme == 'log':
+        elif scheme == "log":
             return LogDestination(uri)
         else:
             raise ValueError(f"Unsupported destination scheme: {scheme}")
@@ -215,24 +215,24 @@ class CamelRouterEngine:
         """Show what would be executed without running"""
         routes_to_check = self.routes
         if route_name:
-            routes_to_check = [r for r in self.routes if r.get('name') == route_name]
+            routes_to_check = [r for r in self.routes if r.get("name") == route_name]
 
         print("🔍 DRY RUN - Configuration Analysis:")
         print("=" * 50)
 
         for route in routes_to_check:
-            name = route.get('name', 'unnamed')
+            name = route.get("name", "unnamed")
             print(f"\n📍 Route: {name}")
             print(f"   From: {self.resolve_variables(route['from'])}")
 
-            if 'processors' in route:
+            if "processors" in route:
                 print("   Processors:")
-                for i, proc in enumerate(route['processors'], 1):
+                for i, proc in enumerate(route["processors"], 1):
                     print(f"     {i}. {proc['type']}")
-                    if proc['type'] == 'external':
+                    if proc["type"] == "external":
                         print(f"        Command: {proc.get('command', 'N/A')}")
 
-            to_config = route['to']
+            to_config = route["to"]
             if isinstance(to_config, str):
                 to_config = [to_config]
 
@@ -245,29 +245,33 @@ class CamelRouterEngine:
         """Validate configuration and return list of errors"""
         errors = []
 
-        if 'routes' not in self.config:
+        if "routes" not in self.config:
             errors.append("Missing 'routes' section")
             return errors
 
         for i, route in enumerate(self.routes):
             route_prefix = f"Route {i + 1}"
-            name = route.get('name', f'unnamed-{i}')
+            name = route.get("name", f"unnamed-{i}")
             route_prefix += f" ({name})"
 
-            if 'from' not in route:
+            if "from" not in route:
                 errors.append(f"{route_prefix}: Missing 'from' field")
 
-            if 'to' not in route:
+            if "to" not in route:
                 errors.append(f"{route_prefix}: Missing 'to' field")
 
             # Validate processors
-            if 'processors' in route:
-                for j, proc in enumerate(route.get('processors', [])):
-                    if 'type' not in proc:
-                        errors.append(f"{route_prefix}, Processor {j + 1}: Missing 'type' field")
+            if "processors" in route:
+                for j, proc in enumerate(route.get("processors", [])):
+                    if "type" not in proc:
+                        errors.append(
+                            f"{route_prefix}, Processor {j + 1}: Missing 'type' field"
+                        )
 
-                    proc_type = proc.get('type')
-                    if proc_type == 'external' and 'command' not in proc:
-                        errors.append(f"{route_prefix}, Processor {j + 1}: External processor missing 'command'")
+                    proc_type = proc.get("type")
+                    if proc_type == "external" and "command" not in proc:
+                        errors.append(
+                            f"{route_prefix}, Processor {j + 1}: External processor missing 'command'"
+                        )
 
         return errors
