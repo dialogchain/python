@@ -3,9 +3,9 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
-from dialogchain.engine import CamelRouterEngine
-from dialogchain.connectors import Source, Destination
-from dialogchain.config import RouteConfig, ConfigError
+from dialogchain.engine import CamelRouterEngine, parse_uri
+from dialogchain.connectors import Source, Destination, RTSPSource, HTTPDestination
+from dialogchain.config import RouteConfig, ValidationError
 
 
 class MockSource(Source):
@@ -62,7 +62,17 @@ class TestCamelRouterEngine:
                         }
                     ]
                 }
-            ]
+            ],
+            "sources": {
+                "rtsp://camera1": {
+                    "type": "rtsp"
+                }
+            },
+            "destinations": {
+                "http://api.example.com/webhook": {
+                    "type": "http"
+                }
+            }
         }
     
     @pytest.fixture
@@ -81,13 +91,30 @@ class TestCamelRouterEngine:
         engine = CamelRouterEngine(sample_config)
         assert engine.config == sample_config
         assert len(engine.routes) == 1
-        assert engine.routes[0].name == "test_route"
+        assert engine.routes[0]["name"] == "test_route"
+    
+    @pytest.mark.asyncio
+    async def test_parse_uri(self):
+        """Test the parse_uri function."""
+        # Test with standard URI
+        scheme, path = parse_uri("http://example.com/path")
+        assert scheme == "http"
+        assert path == "//example.com/path"
+        
+        # Test with simple scheme:path format
+        scheme, path = parse_uri("timer:5s")
+        assert scheme == "timer"
+        assert path == "5s"
+        
+        # Test with invalid URI
+        with pytest.raises(ValueError):
+            parse_uri("invalid_uri")
     
     @pytest.mark.asyncio
     async def test_engine_start_stop(self, sample_config, mock_source, mock_destination):
         """Test starting and stopping the engine."""
-        with patch('dialogchain.connectors.create_source', return_value=mock_source), \
-             patch('dialogchain.connectors.create_destination', return_value=mock_destination):
+        with patch('dialogchain.connectors.RTSPSource', return_value=mock_source), \
+             patch('dialogchain.connectors.HTTPDestination', return_value=mock_destination):
             
             engine = CamelRouterEngine(sample_config)
             await engine.start()
@@ -108,8 +135,8 @@ class TestCamelRouterEngine:
         test_message = {"frame": "test_frame", "confidence": 0.7}
         mock_source.messages = [test_message]
         
-        with patch('dialogchain.connectors.create_source', return_value=mock_source), \
-             patch('dialogchain.connectors.create_destination', return_value=mock_destination):
+        with patch('dialogchain.connectors.RTSPSource', return_value=mock_source), \
+             patch('dialogchain.connectors.HTTPDestination', return_value=mock_destination):
             
             engine = CamelRouterEngine(sample_config)
             await engine.start()
@@ -130,14 +157,14 @@ class TestCamelRouterEngine:
         """Test engine initialization with invalid config."""
         invalid_config = {"routes": [{"name": "invalid"}]}  # Missing required fields
         
-        with pytest.raises(ConfigError):
+        with pytest.raises(ValidationError):
             CamelRouterEngine(invalid_config)
     
     @pytest.mark.asyncio
     async def test_engine_context_manager(self, sample_config, mock_source, mock_destination):
         """Test using the engine as a context manager."""
-        with patch('dialogchain.connectors.create_source', return_value=mock_source), \
-             patch('dialogchain.connectors.create_destination', return_value=mock_destination):
+        with patch('dialogchain.connectors.RTSPSource', return_value=mock_source), \
+             patch('dialogchain.connectors.HTTPDestination', return_value=mock_destination):
             
             async with CamelRouterEngine(sample_config) as engine:
                 # Verify engine is running
