@@ -1,3 +1,5 @@
+![obraz](https://github.com/user-attachments/assets/ae46addf-d503-42d2-9746-cc165ce7b081)
+
 # DialogChain - Flexible Dialog Processing Framework
 
 🚀 **DialogChain** is a flexible and extensible framework for building, managing, and deploying dialog systems and conversational AI applications. It supports multiple programming languages and integrates with various NLP and ML models.
