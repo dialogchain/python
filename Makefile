@@ -55,18 +55,73 @@ install-deps:
 	@which cargo > /dev/null && echo "✅ Rust found: $$(cargo --version)"
 
 # Development
-test:
-	pytest tests/ -v
-	@echo "✅ Tests completed"
+test: test-unit test-integration test-e2e
 
+# Run unit tests
+test-unit:
+	@pytest tests/unit/ -v --cov=src/dialogchain --cov-report=term-missing
+	@echo "✅ Unit tests completed"
+
+# Run integration tests
+test-integration:
+	@pytest tests/integration/ -v --cov=src/dialogchain --cov-append
+	@echo "✅ Integration tests completed"
+
+# Run end-to-end tests
+test-e2e:
+	@pytest tests/e2e/ -v --cov=src/dialogchain --cov-append
+	@echo "✅ End-to-end tests completed"
+
+# Run tests with coverage report
+coverage:
+	@coverage erase
+	@coverage run -m pytest
+	@coverage report -m
+	@coverage html
+	@echo "📊 Coverage report available at htmlcov/index.html"
+
+# Run type checking
+typecheck:
+	@mypy src/dialogchain/
+	@echo "✅ Type checking completed"
+
+# Run all linters
 lint:
-	python -m flake8 src/dialogchain/
-	python -m black --check src/dialogchain/
+	@echo "🔍 Running flake8..."
+	@flake8 src/dialogchain/ tests/
+	@echo "🎨 Checking code formatting with black..."
+	@black --check src/dialogchain/ tests/
+	@echo "📝 Checking import ordering..."
+	@isort --check-only --profile black src/dialogchain/ tests/
 	@echo "✅ Linting completed"
 
+# Format code
 format:
-	python -m black src/dialogchain/
+	@echo "🎨 Formatting code with black..."
+	@black src/dialogchain/ tests/
+	@echo "📝 Sorting imports..."
+	@isort --profile black src/dialogchain/ tests/
 	@echo "✅ Code formatted"
+
+# Check code style without making changes
+check-codestyle:
+	@black --check --diff src/dialogchain/ tests/
+	@isort --check-only --profile black src/dialogchain/ tests/
+
+
+# Run all checks (lint, typecheck, test)
+check-all: lint typecheck test
+	@echo "✨ All checks passed!"
+
+# Install pre-commit hooks
+pre-commit-install:
+	@pre-commit install
+	@pre-commit install --hook-type pre-push
+	@echo "✅ Pre-commit hooks installed"
+
+# Setup development environment
+setup-dev-env: install pre-commit-install
+	@echo "🚀 Development environment ready!"
 
 # Build
 clean:
