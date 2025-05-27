@@ -23,7 +23,10 @@ jobs:
         python-version: ['3.8', '3.9', '3.10', '3.11']
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Fetch all history for version tagging
     
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
@@ -73,17 +76,24 @@ jobs:
         echo "Directory contents:"
         ls -la
         
-        # Check if poetry.lock exists, generate it if not
+        # First install only the project dependencies (without lock file)
+        echo "\n=== Installing project dependencies (initial pass) ==="
+        python -m poetry install --no-interaction --no-ansi -v --only main || \
+          { echo "Initial dependency installation failed"; exit 1; }
+        
+        # Now generate the lock file if it doesn't exist
         if [ ! -f poetry.lock ]; then
-          echo "\n=== No poetry.lock found, generating lock file ==="
+          echo "\n=== Generating poetry.lock ==="
           python -m poetry lock --no-update || \
             { echo "Failed to generate poetry.lock"; exit 1; }
         fi
         
-        echo "\n=== Running poetry install ==="
+        # Install all dependencies with the lock file
+        echo "\n=== Installing all dependencies ==="
         python -m poetry install --with dev,test --no-interaction --no-ansi -v || \
-          { echo "poetry install failed"; exit 1; }
+          { echo "poetry install with dev/test failed"; exit 1; }
         
+        # Verify the environment
         echo "\n=== Environment information ==="
         python -m poetry env info
         
