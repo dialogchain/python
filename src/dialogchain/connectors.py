@@ -3,13 +3,14 @@ import json
 import smtplib
 import aiohttp
 import cv2
+import os
+import logging
 from abc import ABC, abstractmethod
 from typing import AsyncIterator, Any, Dict
 from urllib.parse import urlparse, parse_qs
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
-import logging
 
 
 class Source(ABC):
@@ -280,10 +281,10 @@ class LogDestination(Destination):
 
     def __init__(self, uri: str):
         parsed = urlparse(uri)
-        # Remove leading slash from path if present
-        self.log_file = parsed.path.lstrip('/') if parsed.path else None
-        if self.log_file == '':
-            self.log_file = None
+        # For URIs like 'log://test.log', the path is in netloc
+        self.log_file = parsed.netloc if parsed.netloc else parsed.path.strip('/')
+        # If both netloc and path are empty, set to None
+        self.log_file = self.log_file if self.log_file else None
 
     async def send(self, message: Any) -> None:
         """Log message to console and optionally to a file"""

@@ -47,6 +47,12 @@ class CamelRouterEngine:
         self.verbose = verbose
         self.routes = config.get('routes', [])
         self.running_processes = {}
+        
+        # Validate the configuration on initialization
+        errors = self.validate_config()
+        if errors:
+            error_msg = "Invalid configuration:\n" + "\n".join(f"- {error}" for error in errors)
+            raise ValueError(error_msg)
 
     def log(self, message: str):
         if self.verbose:
