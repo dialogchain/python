@@ -1,0 +1,24 @@
+[run]
+source = src/dialogchain
+branch = true
+omit =
+    **/tests/*
+    **/__init__.py
+    **/version.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
+    raise ImportError
+    except ImportError
+
+[html]
+directory = htmlcov
+
+[xml]
+output = coverage.xml
