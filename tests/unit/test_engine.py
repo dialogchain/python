@@ -1,20 +1,19 @@
-"""Unit tests for the DialogEngine class."""
+"""Unit tests for the CamelRouterEngine class."""
 import asyncio
+import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
-import pytest
+from dialogchain.engine import CamelRouterEngine
+from dialogchain.connectors import Source, Destination
+from dialogchain.config import RouteConfig, ConfigError
 
-from dialogchain import engine, config, exceptions
-from dialogchain.connectors import BaseConnector
 
-
-class MockConnector(BaseConnector):
-    """Mock connector for testing."""
+class MockSource(Source):
+    """Mock source for testing."""
     
-    def __init__(self, config):
-        super().__init__(config)
-        self.sent_messages = []
-        self.received_messages = []
+    def __init__(self):
+        self.messages = []
+        self.is_connected = False
     
     async def connect(self):
         self.is_connected = True
@@ -22,159 +21,136 @@ class MockConnector(BaseConnector):
     async def disconnect(self):
         self.is_connected = False
     
-    async def send(self, message, **kwargs):
-        self.sent_messages.append((message, kwargs))
-        return {"status": "ok"}
+    async def receive(self):
+        while self.messages:
+            yield self.messages.pop(0)
+
+
+class MockDestination(Destination):
+    """Mock destination for testing."""
     
-    async def receive(self, **kwargs):
-        if self.received_messages:
-            return self.received_messages.pop(0)
-        return None
+    def __init__(self):
+        self.sent_messages = []
+        self.is_connected = False
+    
+    async def connect(self):
+        self.is_connected = True
+    
+    async def disconnect(self):
+        self.is_connected = False
+    
+    async def send(self, message):
+        self.sent_messages.append(message)
 
 
-class TestDialogEngine:
-    """Test the DialogEngine class."""
+class TestCamelRouterEngine:
+    """Test the CamelRouterEngine class."""
     
     @pytest.fixture
     def sample_config(self):
-        """Return a sample engine configuration."""
+        """Return a sample route configuration."""
         return {
-            "version": "1.0",
-            "name": "test_engine",
-            "connectors": {
-                "test_input": {
-                    "type": "test",
-                    "name": "test_input"
-                },
-                "test_output": {
-                    "type": "test",
-                    "name": "test_output"
+            "routes": [
+                {
+                    "name": "test_route",
+                    "from": "rtsp://camera1",
+                    "to": "http://api.example.com/webhook",
+                    "processors": [
+                        {
+                            "type": "filter",
+                            "config": {"min_confidence": 0.5}
+                        }
+                    ]
                 }
-            },
-            "processors": {
-                "test_processor": {
-                    "type": "test",
-                    "input": "test_input",
-                    "output": "test_output"
-                }
-            },
-            "workflows": {
-                "default": ["test_processor"]
-            }
+            ]
         }
     
     @pytest.fixture
-    def mock_connector_factory(self):
-        """Return a mock connector factory."""
-        return MagicMock(side_effect=MockConnector)
+    def mock_source(self):
+        """Create a mock source for testing."""
+        return MockSource()
     
     @pytest.fixture
-    def mock_processor_factory(self):
-        """Return a mock processor factory."""
-        mock_processor = AsyncMock()
-        mock_processor.process.return_value = {"processed": True}
-        return MagicMock(return_value=mock_processor)
+    def mock_destination(self):
+        """Create a mock destination for testing."""
+        return MockDestination()
     
     @pytest.mark.asyncio
-    async def test_engine_initialization(self, sample_config, mock_connector_factory, mock_processor_factory):
+    async def test_engine_initialization(self, sample_config):
         """Test engine initialization with valid config."""
-        with patch('dialogchain.connectors.create_connector', mock_connector_factory), \
-             patch('dialogchain.processors.create_processor', mock_processor_factory):
-            
-            dialog_engine = engine.DialogEngine(sample_config)
-            assert dialog_engine.name == "test_engine"
-            assert len(dialog_engine.connectors) == 2
-            assert len(dialog_engine.processors) == 1
-            assert len(dialog_engine.workflows) == 1
+        engine = CamelRouterEngine(sample_config)
+        assert engine.config == sample_config
+        assert len(engine.routes) == 1
+        assert engine.routes[0].name == "test_route"
     
     @pytest.mark.asyncio
-    async def test_engine_start_stop(self, sample_config, mock_connector_factory, mock_processor_factory):
+    async def test_engine_start_stop(self, sample_config, mock_source, mock_destination):
         """Test starting and stopping the engine."""
-        with patch('dialogchain.connectors.create_connector', mock_connector_factory), \
-             patch('dialogchain.processors.create_processor', mock_processor_factory):
+        with patch('dialogchain.connectors.create_source', return_value=mock_source), \
+             patch('dialogchain.connectors.create_destination', return_value=mock_destination):
             
-            dialog_engine = engine.DialogEngine(sample_config)
-            await dialog_engine.start()
+            engine = CamelRouterEngine(sample_config)
+            await engine.start()
             
-            # Verify connectors are connected
-            for connector in dialog_engine.connectors.values():
-                assert connector.is_connected is True
+            # Verify source and destination are connected
+            assert mock_source.is_connected is True
+            assert mock_destination.is_connected is True
             
-            await dialog_engine.stop()
+            await engine.stop()
             
-            # Verify connectors are disconnected
-            for connector in dialog_engine.connectors.values():
-                assert connector.is_connected is False
+            # Verify source and destination are disconnected
+            assert mock_source.is_connected is False
+            assert mock_destination.is_connected is False
     
     @pytest.mark.asyncio
-    async def test_engine_process_message(self, sample_config, mock_connector_factory, mock_processor_factory):
+    async def test_engine_process_message(self, sample_config, mock_source, mock_destination):
         """Test processing a message through the engine."""
-        with patch('dialogchain.connectors.create_connector', mock_connector_factory), \
-             patch('dialogchain.processors.create_processor', mock_processor_factory):
-            
-            dialog_engine = engine.DialogEngine(sample_config)
-            await dialog_engine.start()
-            
-            # Get the input connector and simulate receiving a message
-            input_connector = dialog_engine.connectors["test_input"]
-            input_connector.received_messages = [{"text": "Hello"}]
-            
-            # Process a single message
-            await dialog_engine.process_next_message("test_input", workflow="default")
-            
-            # Verify the processor was called with the message
-            mock_processor = mock_processor_factory()
-            mock_processor.process.assert_awaited_once_with({"text": "Hello"})
-            
-            # Verify the output connector received the processed message
-            output_connector = dialog_engine.connectors["test_output"]
-            assert len(output_connector.sent_messages) == 1
-            assert output_connector.sent_messages[0][0] == {"processed": True}
-            
-            await dialog_engine.stop()
-    
-    @pytest.mark.asyncio
-    async def test_engine_invalid_workflow(self, sample_config, mock_connector_factory, mock_processor_factory):
-        """Test processing with an invalid workflow name."""
-        with patch('dialogchain.connectors.create_connector', mock_connector_factory), \
-             patch('dialogchain.processors.create_processor', mock_processor_factory):
-            
-            dialog_engine = engine.DialogEngine(sample_config)
-            await dialog_engine.start()
-            
-            with pytest.raises(exceptions.ConfigurationError) as exc_info:
-                await dialog_engine.process_next_message("test_input", workflow="nonexistent")
-            assert "Unknown workflow" in str(exc_info.value)
-            
-            await dialog_engine.stop()
-    
-    @pytest.mark.asyncio
-    async def test_engine_error_handling(self, sample_config, mock_connector_factory, mock_processor_factory):
-        """Test error handling during message processing."""
-        # Create a processor that raises an exception
-        mock_processor = AsyncMock()
-        mock_processor.process.side_effect = Exception("Test error")
-        mock_processor_factory.return_value = mock_processor
+        test_message = {"frame": "test_frame", "confidence": 0.7}
+        mock_source.messages = [test_message]
         
-        with patch('dialogchain.connectors.create_connector', mock_connector_factory), \
-             patch('dialogchain.processors.create_processor', mock_processor_factory):
+        with patch('dialogchain.connectors.create_source', return_value=mock_source), \
+             patch('dialogchain.connectors.create_destination', return_value=mock_destination):
             
-            dialog_engine = engine.DialogEngine(sample_config)
-            await dialog_engine.start()
+            engine = CamelRouterEngine(sample_config)
+            await engine.start()
             
-            # Get the input connector and simulate receiving a message
-            input_connector = dialog_engine.connectors["test_input"]
-            input_connector.received_messages = [{"text": "Hello"}]
+            # Process messages for a short duration
+            process_task = asyncio.create_task(engine.run())
+            await asyncio.sleep(0.1)  # Allow some time for processing
+            process_task.cancel()
             
-            # Process a message that will cause an error
-            with pytest.raises(Exception) as exc_info:
-                await dialog_engine.process_next_message("test_input", workflow="default")
-            assert "Test error" in str(exc_info.value)
+            # Verify the message was processed and sent to destination
+            assert len(mock_destination.sent_messages) > 0
+            assert mock_destination.sent_messages[0] == test_message
             
-            await dialog_engine.stop()
+            await engine.stop()
     
     @pytest.mark.asyncio
-    async def test_engine_context_manager(self, sample_config, mock_connector_factory, mock_processor_factory):
+    async def test_engine_invalid_config(self):
+        """Test engine initialization with invalid config."""
+        invalid_config = {"routes": [{"name": "invalid"}]}  # Missing required fields
+        
+        with pytest.raises(ConfigError):
+            CamelRouterEngine(invalid_config)
+    
+    @pytest.mark.asyncio
+    async def test_engine_context_manager(self, sample_config, mock_source, mock_destination):
+        """Test using the engine as a context manager."""
+        with patch('dialogchain.connectors.create_source', return_value=mock_source), \
+             patch('dialogchain.connectors.create_destination', return_value=mock_destination):
+            
+            async with CamelRouterEngine(sample_config) as engine:
+                # Verify engine is running
+                assert engine.is_running is True
+                assert mock_source.is_connected is True
+                assert mock_destination.is_connected is True
+            
+            # Verify engine is stopped after context
+            assert engine.is_running is False
+            assert mock_source.is_connected is False
+            assert mock_destination.is_connected is False
+            
+
         """Test using the engine as a context manager."""
         with patch('dialogchain.connectors.create_connector', mock_connector_factory), \
              patch('dialogchain.processors.create_processor', mock_processor_factory):
