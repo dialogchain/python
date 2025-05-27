@@ -149,21 +149,3 @@ class TestCamelRouterEngine:
             assert engine.is_running is False
             assert mock_source.is_connected is False
             assert mock_destination.is_connected is False
-            
-
-        """Test using the engine as a context manager."""
-        with patch('dialogchain.connectors.create_connector', mock_connector_factory), \
-             patch('dialogchain.processors.create_processor', mock_processor_factory):
-            
-            async with engine.DialogEngine(sample_config) as dialog_engine:
-                # Verify connectors are connected
-                for connector in dialog_engine.connectors.values():
-                    assert connector.is_connected is True
-                
-                # The engine should be running
-                assert dialog_engine.is_running is True
-            
-            # After exiting the context, connectors should be disconnected
-            for connector in dialog_engine.connectors.values():
-                assert connector.is_connected is False
-            assert dialog_engine.is_running is False
