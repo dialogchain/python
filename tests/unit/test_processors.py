@@ -6,31 +6,32 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from dialogchain import processors, exceptions
-from dialogchain.connectors import BaseConnector
+from dialogchain.connectors import Source, Destination
 
 
-class MockConnector(BaseConnector):
-    """Mock connector for testing processors."""
+class MockSource(Source):
+    """Mock source for testing processors."""
     
-    def __init__(self, config):
-        super().__init__(config)
-        self.sent_messages = []
+    def __init__(self, uri: str = "mock://test"):
+        self.uri = uri
         self.received_messages = []
     
-    async def connect(self):
-        self.is_connected = True
+    async def receive(self) -> AsyncIterator[Any]:
+        """Yield messages from the source."""
+        while self.received_messages:
+            yield self.received_messages.pop(0)
+
+
+class MockDestination(Destination):
+    """Mock destination for testing processors."""
     
-    async def disconnect(self):
-        self.is_connected = False
+    def __init__(self, uri: str = "mock://test"):
+        self.uri = uri
+        self.sent_messages = []
     
-    async def send(self, message, **kwargs):
-        self.sent_messages.append((message, kwargs))
-        return {"status": "ok"}
-    
-    async def receive(self, **kwargs):
-        if self.received_messages:
-            return self.received_messages.pop(0)
-        return None
+    async def send(self, message: Any) -> None:
+        """Send message to the destination."""
+        self.sent_messages.append(message)
 
 
 class TestBaseProcessor:
