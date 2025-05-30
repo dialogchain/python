@@ -127,6 +127,10 @@ class ConfigValidator:
         errors = []
         try:
             parsed = urlparse(uri)
+            if not parsed.scheme:
+                errors.append(f"Missing scheme in URI: {uri}")
+                return errors
+                
             scheme = parsed.scheme.lower()
 
             valid_schemes = cls.SUPPORTED_SCHEMES.get(uri_type, [])
@@ -134,6 +138,7 @@ class ConfigValidator:
                 errors.append(
                     f"Unsupported {uri_type} scheme '{scheme}'. Supported: {valid_schemes}"
                 )
+                return errors  # Return early for unsupported schemes
 
             if not parsed.netloc and scheme not in ["file", "log", "timer"]:
                 errors.append(f"Missing host/netloc in URI: {uri}")
