@@ -35,11 +35,11 @@ class TestEmailDestination:
     @pytest.mark.asyncio
     async def test_send_email(self, email_dest):
         """Test sending an email."""
-        mock_smtp = MagicMock()
-        mock_server = MagicMock()
-        mock_smtp.return_value = mock_server
-        
-        with patch('smtplib.SMTP', mock_smtp):
+        with patch('smtplib.SMTP') as mock_smtp:
+            mock_server = MagicMock()
+            mock_smtp.return_value = mock_server
+            
+            # Test with string message
             await email_dest.send("Test email content")
             
             # Verify SMTP connection and login
@@ -52,6 +52,16 @@ class TestEmailDestination:
             assert msg['From'] == 'test@example.com'
             assert msg['To'] == 'recipient@example.com'
             assert 'Test email content' in msg.as_string()
+            
+            # Test with dict message
+            mock_smtp.reset_mock()
+            mock_server.reset_mock()
+            mock_smtp.return_value = mock_server
+            
+            await email_dest.send({"subject": "Test Subject", "body": "Test Body"})
+            msg = mock_server.send_message.call_args[0][0]
+            assert 'Test Subject' in msg['Subject']
+            assert 'Test Body' in msg.as_string()
 
 
 class TestHTTPDestination:
@@ -65,18 +75,28 @@ class TestHTTPDestination:
     @pytest.mark.asyncio
     async def test_send_http_request(self, http_dest):
         """Test sending an HTTP request."""
-        mock_session = AsyncMock()
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_session.post.return_value.__aenter__.return_value = mock_response
         
-        with patch('aiohttp.ClientSession', return_value=mock_session):
+        with patch('aiohttp.ClientSession') as mock_session:
+            mock_session.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = mock_response
+            
+            # Test with dict message
             await http_dest.send({"key": "value"})
             
             # Verify HTTP POST request was made
-            mock_session.post.assert_awaited_once_with(
+            mock_session.return_value.__aenter__.return_value.post.assert_awaited_once_with(
                 'http://example.com/webhook',
                 json={"key": "value"},
+                headers={'Content-Type': 'application/json'}
+            )
+            
+            # Test with string message
+            mock_session.return_value.__aenter__.return_value.post.reset_mock()
+            await http_dest.send("test message")
+            mock_session.return_value.__aenter__.return_value.post.assert_awaited_once_with(
+                'http://example.com/webhook',
+                json="test message",
                 headers={'Content-Type': 'application/json'}
             )
 
@@ -92,19 +112,27 @@ class TestMQTTDestination:
     @pytest.mark.asyncio
     async def test_send_mqtt_message(self, mqtt_dest):
         """Test sending an MQTT message."""
-        mock_client = AsyncMock()
-        
-        with patch('paho.mqtt.client.Client', return_value=mock_client):
-            # Mock the connect method to avoid actual connection
-            with patch.object(mqtt_dest, 'connect', new_callable=AsyncMock) as mock_connect:
-                await mqtt_dest.send("test message")
-                
-                # Verify connection and message publishing
-                mock_connect.assert_awaited_once()
-                mock_client.publish.assert_called_once_with(
-                    'test/topic',
-                    'test message'
-                )
+        with patch('paho.mqtt.client.Client') as mock_client:
+            mock_client.return_value.connect_sync = MagicMock()
+            mock_client.return_value.publish = MagicMock()
+            
+            # Test with string message
+            await mqtt_dest.send("test message")
+            
+            # Verify connection and message publishing
+            mock_client.return_value.connect_sync.assert_called_once_with('broker.example.com', 1883, 60)
+            mock_client.return_value.publish.assert_called_once_with(
+                'test/topic',
+                'test message'
+            )
+            
+            # Test with dict message
+            mock_client.return_value.publish.reset_mock()
+            await mqtt_dest.send({"key": "value"})
+            mock_client.return_value.publish.assert_called_once_with(
+                'test/topic',
+                '{"key": "value"}'
+            )
 
 
 class TestFileDestination:

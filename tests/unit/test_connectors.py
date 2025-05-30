@@ -40,17 +40,23 @@ class TestRTSPSource:
         """Test RTSP source receive method."""
         with patch('cv2.VideoCapture') as mock_capture:
             # Setup mock
-            mock_capture.return_value.isOpened.return_value = True
-            mock_capture.return_value.grab.return_value = True
-            mock_capture.return_value.retrieve.return_value = (True, "frame_data")
+            mock_cap = mock_capture.return_value
+            mock_cap.isOpened.return_value = True
+            mock_cap.read.return_value = (True, "frame_data")
             
             source = connectors.RTSPSource("rtsp://test")
             source.reconnect_attempts = 1  # Limit reconnect attempts for test
             
             # Test receive generator
+            count = 0
             async for frame in source.receive():
-                assert frame == {"frame": "frame_data", "metadata": {}}
-                break  # Just test one iteration
+                assert frame["type"] == "camera_frame"
+                assert "timestamp" in frame
+                assert frame["frame"] == "frame_data"
+                assert frame["source"] == "rtsp://test"
+                count += 1
+                if count >= 1:  # Just test one iteration
+                    break
 
 
 class TestHTTPDestination:
