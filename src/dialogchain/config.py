@@ -85,7 +85,10 @@ class ConfigResolver:
 
     @staticmethod
     def resolve_env_vars(text: str, env_override: Dict[str, str] = None) -> str:
-        """Resolve environment variables in text"""
+        """Resolve environment variables in text.
+        
+        Supports both ${VAR} and {{VAR}} syntax, including default values with ${VAR:default}.
+        """
         import re
         from jinja2 import Template
 
@@ -94,8 +97,24 @@ class ConfigResolver:
             env_vars.update(env_override)
 
         try:
+            # First try Jinja2 templating with {{VAR}}
             template = Template(text)
-            return template.render(**env_vars)
+            result = template.render(**env_vars)
+            
+            # If the result still contains ${VAR}, try replacing those too
+            if "${" in result:
+                def replace_var(match):
+                    var_expr = match.group(1)
+                    # Handle default values in format ${VAR:default}
+                    if ':' in var_expr:
+                        var_name, default = var_expr.split(':', 1)
+                        return env_vars.get(var_name.strip(), default.strip())
+                    # Simple variable replacement
+                    return env_vars.get(var_expr, match.group(0))
+                
+                result = re.sub(r"\${([^}]+)}", replace_var, result)
+                
+            return result
         except Exception as e:
             raise ConfigurationError(f"Error resolving variables in '{text}': {e}")
 
@@ -136,9 +155,9 @@ class ConfigValidator:
             valid_schemes = cls.SUPPORTED_SCHEMES.get(uri_type, [])
             if scheme not in valid_schemes:
                 errors.append(
-                    f"Unsupported {uri_type} scheme '{scheme}'. Supported: {valid_schemes}"
+                    f"Unsupported scheme '{scheme}' for {uri_type}. "
+                    f"Supported schemes: {valid_schemes}"
                 )
-                return errors  # Return early for unsupported schemes
 
             if not parsed.netloc and scheme not in ["file", "log", "timer"]:
                 errors.append(f"Missing host/netloc in URI: {uri}")

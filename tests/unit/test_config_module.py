@@ -8,7 +8,8 @@ from unittest.mock import patch, mock_open
 from dialogchain.config import (
     RouteConfig,
     ConfigResolver,
-    ConfigValidator
+    ConfigValidator,
+    ValidationError
 )
 
 
@@ -43,7 +44,7 @@ class TestRouteConfig:
         
         # Test missing required fields
         invalid_config = {"routes": [{"name": "invalid"}]}
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             RouteConfig(invalid_config)
         assert "Missing 'from' field" in str(exc_info.value)
     
