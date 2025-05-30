@@ -260,7 +260,7 @@ docker-run: docker
 		-v $(PWD)/examples:/app/examples \
 		-v $(PWD)/.env:/app/.env \
 		dialogchain:latest \
-		dialogchain run -c examples/simple_routes.yaml
+		dialogchain run -c examples/simple.yaml
 
 # Examples and setup
 setup-env: venv
@@ -280,51 +280,28 @@ setup-env: venv
 # List available examples
 list-examples:
 	@echo "Available examples:"
-	@echo "  simple  - Basic routing example"
-	@echo "  grpc    - gRPC service integration"
-	@echo "  iot     - IoT device communication"
-	@echo "  camera  - Video processing pipeline"
+	@echo "  make camera  - Run camera processing pipeline"
+	@echo "  make mqtt    - Run MQTT example"
+	@echo "  make grpc    - Run gRPC example"
 
-# Initialize example configurations
-init-camera:
-	poetry run dialogchain init --template camera --output examples/camera_routes.yaml
-	@echo "✅ Camera configuration template created"
+# Example targets
+camera: setup-env
+	@echo "🚀 Running camera processing pipeline..."
+	poetry run dialogchain run -c examples/camera.yaml
 
-init-grpc:
-	poetry run dialogchain init --template grpc --output examples/grpc_routes.yaml
-	@echo "✅ gRPC configuration template created"
+rtsp: setup-env
+	@echo "🚀 Running camera processing pipeline..."
+	poetry run dialogchain run -c examples/rtsp.yaml
 
-init-iot:
-	poetry run dialogchain init --template iot --output examples/iot_routes.yaml
-	@echo "✅ IoT configuration template created"
+mqtt: setup-env
+	@echo "🚀 Starting MQTT broker and running IoT example..."
+	docker-compose -f examples/docker-compose.yml up -d mosquitto
+	poetry run dialogchain run -c examples/iot.yaml
 
-# Run examples
-run-example: setup-env
-	@if [ -z "$(EXAMPLE)" ]; then \
-		echo "Error: Please specify an example with EXAMPLE=name"; \
-		echo "Available examples: simple, grpc, iot, camera"; \
-		exit 1; \
-	fi
-	@echo "🚀 Starting $(EXAMPLE) example..."
-	@case "$(EXAMPLE)" in \
-		simple) \
-			poetry run dialogchain run -c examples/simple_config.yaml ;; \
-		grpc) \
-			docker-compose -f examples/docker-compose.yml up -d grpc-server && \
-			poetry run dialogchain run -c examples/grpc_routes.yaml ;; \
-		iot) \
-			docker-compose -f examples/docker-compose.yml up -d mosquitto && \
-			poetry run dialogchain run -c examples/iot_routes.yaml ;; \
-		camera) \
-			poetry run dialogchain run -c examples/camera_routes.yaml ;; \
-		*) \
-			echo "Error: Unknown example '$(EXAMPLE)'"; \
-			exit 1 ;; \
-	esac
-
-# Run the simple example with verbose output
-run-simple-verbose:
-	poetry run dialogchain run -c examples/simple_config.yaml --verbose
+grpc: setup-env
+	@echo "🚀 Starting gRPC server and running example..."
+	docker-compose -f examples/docker-compose.yml up -d grpc-server
+	poetry run dialogchain run -c examples/grpc.yaml
 
 # View logs for running example
 view-logs:
@@ -360,25 +337,48 @@ stop:
 	@docker-compose -f examples/docker-compose.yml down -v --remove-orphans || true
 	@echo "✅ All Docker containers stopped and volumes removed"
 
-# Alias for backward compatibility
-run-camera: setup-env
-	@echo "🚀 Running camera processing pipeline..."
-	@make run-example EXAMPLE=camera
+# Network Configuration
+# ====================
 
-run-grpc: setup-env
-	@echo "🚀 Running gRPC example..."
-	@make run-example EXAMPLE=grpc
+# Default network (can be overridden)
+DEFAULT_NETWORK ?= 192.168.188.0/24
 
-run-iot: setup-env
-	@echo "🚀 Running IoT example..."
-	@make run-example EXAMPLE=iot
+# Get the default network interface
+DEFAULT_IFACE := $(shell ip route | grep '^default' | awk '{print $$5}' | head -1)
 
-# Network scanning scripts
+# Get the current network from the default interface
+CURRENT_NETWORK := $(shell ip -4 -o addr show $(DEFAULT_IFACE) 2>/dev/null | awk '{print $$4}' | cut -d'/' -f1 | sed 's/$$/\/24/')
+
+# Network Information
+network-info:
+	@echo "🔍 Network Information"
+	@echo "-------------------"
+	@echo "Interface: $(DEFAULT_IFACE)"
+	@echo "Local IP:  $(shell hostname -I | awk '{print $$1}')"
+	@echo "Network:   $(CURRENT_NETWORK)"
+	@echo "Gateway:   $(shell ip route | grep '^default' | awk '{print $$3}')"
+	@echo "Using:     $(DEFAULT_NETWORK) (DEFAULT_NETWORK)"
+
+# Update .env with current network settings
+update-env:
+	@echo "📝 Updating .env with network settings..."
+	@if [ -f .env ]; then \
+		sed -i "s/^DEFAULT_NETWORK=.*/DEFAULT_NETWORK=$(DEFAULT_NETWORK)/" .env; \
+	else \
+		echo "DEFAULT_NETWORK=$(DEFAULT_NETWORK)" > .env; \
+	fi
+	@echo "✅ Updated .env with DEFAULT_NETWORK=$(DEFAULT_NETWORK)"
+
+# Get current network (for scripts)
+get-network:
+	@echo "$(DEFAULT_NETWORK)"
+
+# Network Scanning
+# ===============
 SCAN_SCRIPT=scripts/network_scanner.py
 PRINTER_SCRIPT=scripts/printer_scanner.py
 
-# Common network settings
-DEFAULT_NETWORK?=192.168.1.0/24
+# Common scanning parameters
 COMMON_PORTS=80,443,554,8000-8090,8443,8554,8888,9000-9001,10000-10001
 SERVICES=rtsp,http,https,onvif,rtmp,rtmps,rtmpt,rtmpts,rtmpe,rtmpte,rtmfp
 
@@ -386,39 +386,44 @@ SERVICES=rtsp,http,https,onvif,rtmp,rtmps,rtmpt,rtmpts,rtmpe,rtmpte,rtmfp
 .PHONY: scan-network scan-cameras scan-camera scan-printers scan-local scan-quick scan-full scan-local-camera help
 
 ## Network scanning
-scan-network: ## Scan the default network for common services
+scan-network: venv ## Scan the default network for common services
 	@echo "🔍 Scanning $(DEFAULT_NETWORK) for common services..."
 	@python3 $(SCAN_SCRIPT) --network $(DEFAULT_NETWORK) --service $(SERVICES) --port $(COMMON_PORTS)
 
-## Camera-specific scanning
-scan-cameras: ## Scan for cameras and related services
-	@echo "📷 Scanning for cameras (RTSP, HTTP, ONVIF, etc.)..."
-	@python3 $(SCAN_SCRIPT) --network $(DEFAULT_NETWORK) --service $(SERVICES) --port $(COMMON_PORTS) --verbose
+# Network scanner settings
+SCAN_PORTS := 80,81,82,83,84,85,86,87,88,89,90,443,554,8000-8100,8443,8554,8888,9000-9010,10000-10010
+SCAN_SERVICES := rtsp,http,https,onvif
+SCAN_TIMEOUT := 2
 
-scan-camera: ## Scan a specific camera IP (make scan-camera IP=192.168.1.100)
+## Camera-specific scanning
+scan-cameras: venv ## Scan for cameras and related services
+	@echo "📷 Scanning for cameras (RTSP, HTTP, ONVIF, etc.)..."
+	@./venv/bin/python $(SCAN_SCRIPT) --network $(DEFAULT_NETWORK) --service $(SCAN_SERVICES) --port $(SCAN_PORTS) --timeout $(SCAN_TIMEOUT) --verbose
+
+scan-camera: venv ## Scan a specific camera IP (make scan-camera IP=192.168.1.100)
 	@if [ -z "$(IP)" ]; then echo "❌ Please specify an IP address: make scan-camera IP=192.168.1.100"; exit 1; fi
 	@echo "🔍 Scanning camera at $(IP)..."
-	@python3 $(SCAN_SCRIPT) --network $(IP) --service $(SERVICES) --port $(COMMON_PORTS) --verbose
+	@./venv/bin/python $(SCAN_SCRIPT) --network $(IP) --service $(SCAN_SERVICES) --port $(SCAN_PORTS) --timeout $(SCAN_TIMEOUT) --verbose
 
 ## Quick and full network scans
-scan-quick: ## Quick scan of common ports (fast but less thorough)
+scan-quick: venv ## Quick scan of common ports (fast but less thorough)
 	@echo "⚡ Quick network scan..."
-	@python3 $(SCAN_SCRIPT) --network $(DEFAULT_NETWORK) --port 21-23,80,443,554,8000,8080,8081,8443,9000 --timeout 1
+	@./venv/bin/python $(SCAN_SCRIPT) --network $(DEFAULT_NETWORK) --port 21-23,80,443,554,8000,8080,8081,8443,9000 --timeout 1
 
-scan-full: ## Comprehensive scan (slower but more thorough)
+scan-full: venv ## Comprehensive scan (slower but more thorough)
 	@echo "🔍 Full network scan (this may take a while)..."
-	@python3 $(SCAN_SCRIPT) --network $(DEFAULT_NETWORK) --port 1-10000 --timeout 2
+	@./venv/bin/python $(SCAN_SCRIPT) --network $(DEFAULT_NETWORK) --port 1-10000 --timeout 2
 
 ## Local network scan (common home network ranges)
-scan-local: ## Scan common local network ranges
+scan-local: venv ## Scan common local network ranges
 	@echo "🏠 Scanning common local network ranges..."
 	@for net in 192.168.0.0/24 192.168.1.0/24 192.168.2.0/24 10.0.0.0/24 10.0.1.0/24; do \
 		echo "\n📡 Scanning network: $$net"; \
-		python3 $(SCAN_SCRIPT) --network $$net --service $(SERVICES) --port $(COMMON_PORTS); \
+		./venv/bin/python $(SCAN_SCRIPT) --network $$net --service $(SCAN_SERVICES) --port $(SCAN_PORTS) --timeout $(SCAN_TIMEOUT); \
 	done
 
 ## Printer management
-scan-printers: ## List all available printers
+scan-printers: venv ## List all available printers
 	@echo "🖨️  Listing available printers..."
 	@python3 $(PRINTER_SCRIPT) list
 
@@ -466,11 +471,11 @@ run-simple: setup-env
 	@make run-example EXAMPLE=simple
 
 validate:
-	poetry run dialogchain validate -c examples/simple_routes.yaml
+	poetry run dialogchain validate -c examples/simple.yaml
 	@echo "✅ Configuration validated"
 
 dry-run:
-	poetry run dialogchain run -c examples/simple_routes.yaml --dry-run
+	poetry run dialogchain run -c examples/simple.yaml --dry-run
 	@echo "✅ Dry run completed"
 
 # External processor compilation

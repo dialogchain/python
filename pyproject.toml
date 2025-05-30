@@ -38,6 +38,7 @@ opencv-python = "^4.7.0"
 numpy = "^1.21.0"
 python-nmap = "^0.7.1"
 aiofiles = "^24.1.0"
+ultralytics = "^8.3.146"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.0.0"
