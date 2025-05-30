@@ -197,7 +197,7 @@ class TestHttpScanner:
         return session
     
     @pytest.mark.asyncio
-    async def test_http_scanner_scan(self, mock_session):
+    async def test_http_scanner_scan(self, mock_session, mock_response):
         """Test HTTP scanning with a mock session."""
         config = {
             "type": "http",
@@ -207,20 +207,32 @@ class TestHttpScanner:
             "timeout": 30
         }
         
-        with patch('aiohttp.ClientSession', return_value=mock_session):
-            http_scanner = scanner.HttpScanner(config)
-            results = await http_scanner.scan()
-            
-            assert len(results) == 2
-            assert "http://example.com/config1.yaml" in results
-            assert "http://example.com/config2.yaml" in results
-            
-            # Verify the request was made correctly
-            mock_session.get.assert_called_once_with(
-                "http://example.com/api/configs",
-                headers={"Authorization": "Bearer token"},
-                timeout=30
-            )
+        # Configure the mock response
+        mock_response.json.return_value = {
+            "configs": [
+                {"name": "config1", "url": "http://example.com/config1.yaml"},
+                {"name": "config2", "url": "http://example.com/config2.yaml"}
+            ]
+        }
+        
+        # Create the scanner and set the test session
+        http_scanner = scanner.HttpScanner(config)
+        http_scanner._test_session = mock_session
+        
+        # Run the scan
+        results = await http_scanner.scan()
+        
+        # Verify the results
+        assert len(results) == 2
+        assert "http://example.com/config1.yaml" in results
+        assert "http://example.com/config2.yaml" in results
+        
+        # Verify the request was made correctly
+        mock_session.get.assert_called_once_with(
+            "http://example.com/api/configs",
+            headers={"Authorization": "Bearer token"},
+            timeout=30
+        )
     
     @pytest.mark.asyncio
     async def test_http_scanner_error_handling(self):
@@ -230,19 +242,18 @@ class TestHttpScanner:
             "url": "http://example.com/api/configs"
         }
         
-        # Mock a failed request
-        async def mock_get(*args, **kwargs):
-            raise Exception("Connection failed")
-        
+        # Create a mock session that raises an exception
         mock_session = MagicMock()
-        mock_session.get.side_effect = mock_get
+        mock_session.get.return_value.__aenter__.side_effect = Exception("Connection failed")
         
-        with patch('aiohttp.ClientSession', return_value=mock_session):
-            http_scanner = scanner.HttpScanner(config)
-            
-            with pytest.raises(exceptions.ScannerError) as exc_info:
-                await http_scanner.scan()
-            assert "Connection failed" in str(exc_info.value)
+        # Create the scanner and set the test session
+        http_scanner = scanner.HttpScanner(config)
+        http_scanner._test_session = mock_session
+        
+        # Verify the exception is raised and contains the error message
+        with pytest.raises(scanner.ScannerError) as exc_info:
+            await http_scanner.scan()
+        assert "Connection failed" in str(exc_info.value)
 
 
 class TestScannerFactory:

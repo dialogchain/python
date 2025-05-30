@@ -39,6 +39,12 @@ class TimeoutError(CamelRouterError):
     pass
 
 
+class ScannerError(CamelRouterError):
+    """Scanner related errors"""
+    
+    pass
+
+
 class ExternalProcessError(ProcessorError):
     """External process execution errors"""
 

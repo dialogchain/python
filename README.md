@@ -1,8 +1,6 @@
-![obraz](https://github.com/user-attachments/assets/ae46addf-d503-42d2-9746-cc165ce7b081)
-
 # DialogChain - Flexible Dialog Processing Framework
 
-🚀 **DialogChain** is a flexible and extensible framework for building, managing, and deploying dialog systems and conversational AI applications. It supports multiple programming languages and integrates with various NLP and ML models.
+🚀 **DialogChain** is a powerful and extensible framework for building, managing, and deploying dialog systems and conversational AI applications. It supports multiple programming languages and integrates with various NLP and ML models.
 
 [![Python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11-blue)](https://www.python.org/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -10,6 +8,137 @@
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 [![Tests](https://github.com/dialogchain/python/actions/workflows/tests.yml/badge.svg)](https://github.com/dialogchain/python/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/dialogchain/python/graph/badge.svg?token=YOUR-TOKEN-HERE)](https://codecov.io/gh/dialogchain/python)
+
+## 📖 Table of Contents
+
+- [Features](#-features)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Documentation](#-documentation)
+- [Examples](#-examples)
+- [Architecture](#-architecture)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+## ✨ Features
+
+- **Multi-language Support**: Write processors in Python, JavaScript, or any language with gRPC support
+- **Extensible Architecture**: Easily add new input sources, processors, and output destinations
+- **Asynchronous Processing**: Built on asyncio for high-performance dialog processing
+- **YAML Configuration**: Define dialog flows and processing pipelines with simple YAML files
+- **Built-in Processors**: Includes common NLP and ML model integrations
+- **Monitoring & Logging**: Comprehensive logging and metrics out of the box
+- **REST & gRPC APIs**: Easy integration with other services
+- **Docker Support**: Containerized deployment options
+
+## 🚀 Installation
+
+### Prerequisites
+
+- Python 3.8+
+- Poetry (for development)
+- Docker (optional, for containerized deployment)
+
+### Using pip
+
+```bash
+pip install dialogchain
+```
+
+### From Source
+
+```bash
+git clone https://github.com/dialogchain/python
+cd python
+poetry install
+```
+
+## 🚀 Quick Start
+
+1. Create a simple dialog configuration in `config.yaml`:
+
+```yaml
+version: "1.0"
+
+pipeline:
+  - name: greeting
+    type: python
+    module: dialogchain.processors.basic
+    class: GreetingProcessor
+    config:
+      default_name: "User"
+```
+
+2. Run the dialog server:
+
+```bash
+dialogchain serve config.yaml
+```
+
+3. Send a request:
+
+```bash
+curl -X POST http://localhost:8000/process -H "Content-Type: application/json" -d '{"text": "Hello!"}'
+```
+
+## 📚 Documentation
+
+For detailed documentation, please visit our [documentation site](https://dialogchain.github.io/python/).
+
+## 📦 Project Structure
+
+```
+dialogchain/
+├── src/
+│   └── dialogchain/
+│       ├── __init__.py
+│       ├── engine.py          # Core processing engine
+│       ├── processors/        # Built-in processors
+│       ├── connectors/        # I/O connectors
+│       └── utils/            # Utility functions
+├── tests/                    # Test suite
+├── examples/                 # Example configurations
+└── docs/                     # Documentation
+```
+
+## 🧪 Testing
+
+Run the complete test suite:
+
+```bash
+make test
+```
+
+Run specific test types:
+
+```bash
+# Unit tests
+make test-unit
+
+# Integration tests
+make test-integration
+
+# End-to-end tests
+make test-e2e
+```
+
+Generate test coverage report:
+
+```bash
+make coverage
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+## 📄 License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## 📞 Support
+
+For support, please open an issue in the [GitHub repository](https://github.com/dialogchain/python/issues).
 
 ## 🧪 Testing DialogChain
 

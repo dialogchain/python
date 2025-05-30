@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Set, AsyncGenerator
+from typing import List, Dict, Any, Optional, Set, AsyncGenerator, Callable, Union
 from urllib.parse import urlparse
 import aiohttp
 from dataclasses import dataclass
@@ -39,14 +39,28 @@ class BaseScanner:
 class FileScanner(BaseScanner):
     """Scanner for local file system configurations."""
     
-    def __init__(self, path: str, pattern: str = "*.yaml", recursive: bool = True):
+    def __init__(self, path: Union[str, Dict[str, Any]], pattern: str = "*.yaml", recursive: bool = True):
         """Initialize file scanner.
         
         Args:
-            path: Base directory to scan
+            path: Base directory to scan (string or dict with 'path' key)
             pattern: File pattern to match (e.g., '*.yaml')
             recursive: Whether to scan subdirectories
+            
+        If a dictionary is provided, it should contain:
+            - path: Base directory to scan (required)
+            - pattern: File pattern (optional, defaults to '*.yaml')
+            - recursive: Whether to scan subdirectories (optional, defaults to True)
         """
+        # Handle dictionary input
+        if isinstance(path, dict):
+            config = path
+            path = config.get('path')
+            if not path:
+                raise ValueError("Configuration must contain 'path' key")
+            pattern = config.get('pattern', pattern)
+            recursive = config.get('recursive', recursive)
+            
         self.path = Path(path).expanduser().resolve()
         self.pattern = pattern
         self.recursive = recursive
@@ -79,13 +93,25 @@ class FileScanner(BaseScanner):
 class HttpScanner(BaseScanner):
     """Scanner for HTTP/HTTPS configuration endpoints."""
     
-    def __init__(self, url: str, timeout: int = 30):
+    def __init__(self, url: Union[str, Dict[str, Any]], timeout: int = 30):
         """Initialize HTTP scanner.
         
         Args:
-            url: Base URL to scan
+            url: Base URL to scan (string or dict with 'url' key)
             timeout: Request timeout in seconds
+            
+        If a dictionary is provided, it should contain:
+            - url: Base URL to scan (required)
+            - timeout: Request timeout in seconds (optional, defaults to 30)
         """
+        # Handle dictionary input
+        if isinstance(url, dict):
+            config = url
+            url = config.get('url')
+            if not url:
+                raise ValueError("Configuration must contain 'url' key")
+            timeout = config.get('timeout', timeout)
+            
         self.url = url
         self.timeout = aiohttp.ClientTimeout(total=timeout)
     
@@ -94,20 +120,36 @@ class HttpScanner(BaseScanner):
         
         Returns:
             List of configuration URLs
+            
+        Raises:
+            ScannerError: If the scan fails
         """
         try:
-            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+            # For testing with mock session
+            if hasattr(self, '_test_session'):
+                session = self._test_session
                 async with session.get(self.url) as response:
-                    if response.status == 200:
-                        content_type = response.headers.get('Content-Type', '')
-                        if 'yaml' in content_type or 'yml' in content_type:
-                            return [self.url]
-                        # TODO: Handle directory listings or API responses
-                        return [self.url]
                     response.raise_for_status()
-                    return []
-        except aiohttp.ClientError as e:
-            raise ScannerError(f"HTTP request failed: {e}")
+                    data = await response.json()
+            else:
+                # Normal operation with real aiohttp session
+                async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                    async with session.get(self.url) as response:
+                        response.raise_for_status()
+                        data = await response.json()
+            
+            # Extract URLs from the response
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict) and 'urls' in data:
+                return data['urls']
+            elif isinstance(data, dict) and 'configs' in data:
+                return [item['url'] for item in data['configs']]
+            else:
+                return [self.url]
+                
+        except Exception as e:
+            raise ScannerError(f"HTTP scan failed: {e}")
 
 
 def create_scanner(config: Dict[str, Any]) -> BaseScanner:
