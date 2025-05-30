@@ -11,6 +11,83 @@
 [![Tests](https://github.com/dialogchain/python/actions/workflows/tests.yml/badge.svg)](https://github.com/dialogchain/python/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/dialogchain/python/graph/badge.svg?token=YOUR-TOKEN-HERE)](https://codecov.io/gh/dialogchain/python)
 
+## 🧪 Testing DialogChain
+
+DialogChain includes a comprehensive test suite to ensure code quality and functionality. Here's how to run the tests and view logs:
+
+### Running Tests
+
+Run the complete test suite:
+
+```bash
+make test
+```
+
+Or run specific test types:
+
+```bash
+# Unit tests
+make test-unit
+
+# Integration tests
+make test-integration
+
+# End-to-end tests
+make test-e2e
+```
+
+### Viewing Test Coverage
+
+Generate a coverage report to see which parts of your code are being tested:
+
+```bash
+make coverage
+```
+
+This will generate an HTML report in the `htmlcov` directory.
+
+### Viewing Logs
+
+View the most recent logs from your application:
+
+```bash
+# Show last 50 lines from all log files
+make logs
+
+# Show a different number of lines
+make logs LINES=100
+
+# Specify a custom log directory
+make logs LOG_DIR=/path/to/logs
+```
+
+### Linting and Code Style
+
+Ensure your code follows the project's style guidelines:
+
+```bash
+# Run linters
+make lint
+
+# Automatically format your code
+make format
+
+# Check types
+make typecheck
+```
+
+### Running in Docker
+
+You can also run tests in a Docker container:
+
+```bash
+# Build the Docker image
+docker build -t dialogchain .
+
+# Run tests in the container
+docker run --rm dialogchain make test
+```
+
 ## 🔍 Network Scanning & Printing
 
 DialogChain includes powerful network scanning capabilities to discover devices like cameras and printers on your local network.

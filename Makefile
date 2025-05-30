@@ -23,10 +23,17 @@ help:
 	@echo "  docker           - Build Docker image"
 	@echo "  run-example      - Run an example (use EXAMPLE=name)"
 	@echo "  list-examples    - List available examples"
+	@echo "  logs             - View recent logs (use: make logs LINES=50)"
 	@echo "  view-logs        - View logs for running example"
 	@echo "  stop-example     - Stop a running example"
 	@echo "  docs             - Generate documentation"
 	@echo "  setup-env        - Create example .env file"
+	@echo ""
+	@echo "Testing commands:"
+	@echo "  test-unit        - Run unit tests"
+	@echo "  test-integration - Run integration tests"
+	@echo "  test-e2e         - Run end-to-end tests"
+	@echo "  coverage         - Generate test coverage report"
 
 # Installation
 install:
@@ -147,6 +154,18 @@ version:
 	git commit -m "Bump version to $$(poetry version --short)"
 	git tag -a "v$$(poetry version --short)" -m "Version $$(poetry version --short)"
 	@echo "✅ Version bumped and tagged. Don't forget to push with tags: git push --follow-tags"
+
+# View recent logs from the application
+LINES ?= 50  # Default number of lines to show
+LOG_DIR ?= logs  # Default log directory
+
+logs:
+	@echo "📋 Showing last $(LINES) lines of logs from $(LOG_DIR)/"
+	@if [ -d "$(LOG_DIR)" ]; then \
+		find "$(LOG_DIR)" -type f -name "*.log" -exec sh -c 'echo "\n📄 {}:"; tail -n $(LINES) {}' \; 2>/dev/null || echo "No log files found in $(LOG_DIR)/"; \
+	else \
+		echo "Log directory $(LOG_DIR)/ does not exist"; \
+	fi
 
 # Helper to get PYPI_TOKEN from files
 define get_pypi_token
