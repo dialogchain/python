@@ -1,15 +1,183 @@
 """
-Network scanner module for DialogChain.
-Provides functionality to scan for various network services like RTSP, SMTP, IMAP, etc.
+Scanner module for DialogChain.
+Provides functionality to scan for configuration files from various sources.
 """
 import asyncio
-import ipaddress
-import socket
-import nmap
-import cv2
-from typing import List, Dict, Any, Optional, Tuple, Callable
+import logging
+import os
+from pathlib import Path
+from typing import List, Dict, Any, Optional, Set, AsyncGenerator
+from urllib.parse import urlparse
+import aiohttp
 from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor
+import aiofiles
+
+logger = logging.getLogger(__name__)
+
+class ScannerError(Exception):
+    """Base exception for scanner related errors."""
+    pass
+
+class BaseScanner:
+    """Base class for all scanners."""
+    
+    async def scan(self) -> List[str]:
+        """Scan for configuration files.
+        
+        Returns:
+            List of configuration file paths or URLs
+        """
+        raise NotImplementedError("Subclasses must implement scan()")
+    
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
+class FileScanner(BaseScanner):
+    """Scanner for local file system configurations."""
+    
+    def __init__(self, path: str, pattern: str = "*.yaml", recursive: bool = True):
+        """Initialize file scanner.
+        
+        Args:
+            path: Base directory to scan
+            pattern: File pattern to match (e.g., '*.yaml')
+            recursive: Whether to scan subdirectories
+        """
+        self.path = Path(path).expanduser().resolve()
+        self.pattern = pattern
+        self.recursive = recursive
+    
+    async def scan(self) -> List[str]:
+        """Scan for configuration files.
+        
+        Returns:
+            List of absolute file paths
+        """
+        if not self.path.exists():
+            raise ScannerError(f"Path does not exist: {self.path}")
+        
+        if not self.path.is_dir():
+            return [str(self.path)] if self.path.suffix in ('.yaml', '.yml') else []
+        
+        result = []
+        if self.recursive:
+            for file_path in self.path.rglob(self.pattern):
+                if file_path.is_file():
+                    result.append(str(file_path))
+        else:
+            for file_path in self.path.glob(self.pattern):
+                if file_path.is_file():
+                    result.append(str(file_path))
+        
+        return result
+
+
+class HttpScanner(BaseScanner):
+    """Scanner for HTTP/HTTPS configuration endpoints."""
+    
+    def __init__(self, url: str, timeout: int = 30):
+        """Initialize HTTP scanner.
+        
+        Args:
+            url: Base URL to scan
+            timeout: Request timeout in seconds
+        """
+        self.url = url
+        self.timeout = aiohttp.ClientTimeout(total=timeout)
+    
+    async def scan(self) -> List[str]:
+        """Scan HTTP endpoint for configurations.
+        
+        Returns:
+            List of configuration URLs
+        """
+        try:
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                async with session.get(self.url) as response:
+                    if response.status == 200:
+                        content_type = response.headers.get('Content-Type', '')
+                        if 'yaml' in content_type or 'yml' in content_type:
+                            return [self.url]
+                        # TODO: Handle directory listings or API responses
+                        return [self.url]
+                    response.raise_for_status()
+                    return []
+        except aiohttp.ClientError as e:
+            raise ScannerError(f"HTTP request failed: {e}")
+
+
+def create_scanner(config: Dict[str, Any]) -> BaseScanner:
+    """Create a scanner instance based on configuration.
+    
+    Args:
+        config: Scanner configuration
+        
+    Returns:
+        Scanner instance
+        
+    Raises:
+        ValueError: If scanner type is unknown
+    """
+    scanner_type = config.get('type')
+    
+    if scanner_type == 'file':
+        return FileScanner(
+            path=config['path'],
+            pattern=config.get('pattern', '*.yaml'),
+            recursive=config.get('recursive', True)
+        )
+    elif scanner_type == 'http':
+        return HttpScanner(
+            url=config['url'],
+            timeout=config.get('timeout', 30)
+        )
+    else:
+        raise ValueError(f"Unknown scanner type: {scanner_type}")
+
+
+class ConfigScanner:
+    """Manages multiple scanners and aggregates their results."""
+    
+    def __init__(self, config: Dict[str, Any]):
+        """Initialize config scanner.
+        
+        Args:
+            config: Configuration dictionary
+        """
+        self.config = config
+        self.scanners = []
+        
+        # Create scanners from config
+        for scanner_config in config.get('scanners', []):
+            try:
+                scanner = create_scanner(scanner_config)
+                self.scanners.append(scanner)
+            except Exception as e:
+                logger.warning(f"Failed to create scanner: {e}")
+    
+    async def scan(self) -> List[str]:
+        """Run all scanners and collect results.
+        
+        Returns:
+            List of configuration file paths/URLs
+            
+        Raises:
+            ScannerError: If scanning fails
+        """
+        results = set()
+        
+        for scanner in self.scanners:
+            try:
+                scanner_results = await scanner.scan()
+                results.update(scanner_results)
+            except Exception as e:
+                raise ScannerError(f"Scanner failed: {e}") from e
+        
+        return list(results)
 
 
 @dataclass

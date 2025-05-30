@@ -258,18 +258,16 @@ class AggregateProcessor(Processor):
             self.last_flush = current_time
             # Don't add the new message to the buffer yet, it will be processed in the next call
             return result
-            
         # Add message to buffer
         self.buffer.append({"timestamp": current_time, "message": message})
 
         # Check if we should flush due to buffer size
-        if len(self.buffer) >= self.max_size or len(self.buffer) >= 2:
+        if len(self.buffer) >= self.max_size:
             result = self._create_aggregate()
             self.buffer.clear()
             self.last_flush = current_time
             return result
             
-        # If this is the first message, set the last_flush time
         if len(self.buffer) == 1:
             self.last_flush = current_time
 
