@@ -6,6 +6,9 @@ import os
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from dialogchain.utils.logger import setup_logger
+logger = setup_logger(__name__)
+
 
 
 def extract_code_blocks(content: str) -> List[Tuple[str, str, Optional[str]]]:

@@ -6,6 +6,9 @@ import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 from jinja2 import Template
+from dialogchain.utils.logger import setup_logger
+logger = setup_logger(__name__)
+
 
 
 def create_processor(config: Dict[str, Any]) -> 'Processor':

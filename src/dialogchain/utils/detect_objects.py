@@ -12,6 +12,9 @@ import base64
 import numpy as np
 import cv2
 from pathlib import Path
+from dialogchain.utils.logger import setup_logger
+logger = setup_logger(__name__)
+
 
 # Optional: ultralytics for YOLO
 try:
@@ -20,7 +23,7 @@ try:
     HAS_YOLO = True
 except ImportError:
     HAS_YOLO = False
-    print("Warning: ultralytics not installed, using dummy detection")
+    logger.info("Warning: ultralytics not installed, using dummy detection")
 
 
 def load_config():
@@ -150,11 +153,11 @@ def main():
             with open(args.output, "w") as f:
                 json.dump(output, f, indent=2)
         else:
-            print(json.dumps(output, indent=2))
+    logger.info(json.dumps(output, indent=2))
 
     except Exception as e:
         error_output = {"error": str(e), "success": False}
-        print(json.dumps(error_output, indent=2), file=sys.stderr)
+    logger.info(json.dumps(error_output, indent=2), file=sys.stderr)
         sys.exit(1)
 
 

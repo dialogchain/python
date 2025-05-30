@@ -6,6 +6,9 @@ import os
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
+from dialogchain.utils.logger import setup_logger
+logger = setup_logger(__name__)
+
 
 
 class MarkdownExtractor:
@@ -90,7 +93,7 @@ class MarkdownExtractor:
         for md_file in md_files:
             self.process_markdown_file(md_file)
 
-        print("\nExtraction complete!")
+    logger.info("\nExtraction complete!")
         return 0
 
 

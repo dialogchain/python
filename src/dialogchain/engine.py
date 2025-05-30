@@ -9,6 +9,9 @@ from jinja2 import Template
 import yaml
 from .processors import *
 from .connectors import *
+from dialogchain.utils.logger import setup_logger
+logger = setup_logger(__name__)
+
 
 
 def parse_uri(uri: str) -> Tuple[str, str]:
@@ -216,9 +219,11 @@ class CamelRouterEngine:
         routes_to_check = self.routes
         if route_name:
             routes_to_check = [r for r in self.routes if r.get("name") == route_name]
+        else:
+            routes_to_check = self.routes
 
-        print("🔍 DRY RUN - Configuration Analysis:")
-        print("=" * 50)
+        logger.info("🔍 DRY RUN - Configuration Analysis:")
+        logger.info("=" * 50)
 
         for route in routes_to_check:
             name = route.get("name", "unnamed")
@@ -226,7 +231,7 @@ class CamelRouterEngine:
             print(f"   From: {self.resolve_variables(route['from'])}")
 
             if "processors" in route:
-                print("   Processors:")
+                logger.info("   Processors:")
                 for i, proc in enumerate(route["processors"], 1):
                     print(f"     {i}. {proc['type']}")
                     if proc["type"] == "external":
@@ -236,7 +241,7 @@ class CamelRouterEngine:
             if isinstance(to_config, str):
                 to_config = [to_config]
 
-            print("   To:")
+            logger.info("   To:")
             for dest in to_config:
                 resolved = self.resolve_variables(dest)
                 print(f"     • {resolved}")

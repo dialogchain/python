@@ -11,6 +11,9 @@ from urllib.parse import urlparse, parse_qs
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+from dialogchain.utils.logger import setup_logger
+logger = setup_logger(__name__)
+
 
 
 class Source(ABC):
@@ -58,7 +61,7 @@ class RTSPSource(Source):
                 while True:
                     ret, frame = cap.read()
                     if not ret:
-                        print("📹 Lost connection to camera")
+                        logger.info("📹 Lost connection to camera")
                         break
 
                     # Skip frames for performance
@@ -194,34 +197,73 @@ class EmailDestination(Destination):
             self.recipients = self.recipients[0].split(",")
 
     async def send(self, message: Any) -> None:
-        """Send email"""
+        """Send email with enhanced logging"""
         try:
+            print(f"🔧 Preparing email with server: {self.server}:{self.port}")
+            print(f"🔧 Authenticating as user: {self.user}")
+            
             msg = MIMEMultipart()
             msg["From"] = self.user
-            msg["Subject"] = "Camel Router Alert"
+            
+            # Extract subject from message if it's a dict and has a subject field
+            if isinstance(message, dict) and 'subject' in message:
+                msg["Subject"] = message.get('subject', 'Camel Router Alert')
+                print(f"📨 Using subject from message: {msg['Subject']}")
+            else:
+                msg["Subject"] = "Camel Router Alert"
+                logger.info("ℹ️  Using default subject")
 
-            # Format message
+            # Format message body
             if isinstance(message, dict):
                 body = json.dumps(message, indent=2)
+                print(f"ℹ️  Message is a dictionary, converting to JSON")
             else:
                 body = str(message)
+                print(f"ℹ️  Message is a string, length: {len(body)} characters")
 
             msg.attach(MIMEText(body, "plain"))
+            print(f"✉️  Message prepared, connecting to SMTP server...")
 
-            server = smtplib.SMTP(self.server, self.port)
+            # SMTP connection and sending
+            server = smtplib.SMTP(self.server, self.port, timeout=10)
+            print(f"🔌 Connected to SMTP server: {self.server}:{self.port}")
+            
             server.starttls()
+            logger.info("🔒 Started TLS encryption")
+            
+            print(f"🔑 Authenticating user: {self.user}")
             server.login(self.user, self.password)
+            logger.info("✅ Authentication successful")
 
+            success_count = 0
             for recipient in self.recipients:
-                msg["To"] = recipient.strip()
-                server.send_message(msg)
-                del msg["To"]
+                clean_recipient = recipient.strip()
+                if not clean_recipient:
+                    logger.info("⚠️  Empty recipient, skipping")
+                    continue
+                    
+                try:
+                    msg["To"] = clean_recipient
+                    print(f"📤 Sending to: {clean_recipient}")
+                    server.send_message(msg)
+                    del msg["To"]
+                    success_count += 1
+                    print(f"✅ Successfully sent to: {clean_recipient}")
+                except Exception as send_error:
+                    print(f"❌ Failed to send to {clean_recipient}: {send_error}")
 
             server.quit()
-            print(f"📧 Email sent to {len(self.recipients)} recipients")
+            print(f"📬 Email sending complete. Successfully sent to {success_count}/{len(self.recipients)} recipients")
 
+        except smtplib.SMTPException as smtp_error:
+            print(f"❌ SMTP Error: {smtp_error}")
+            print(f"   SMTP Code: {getattr(smtp_error, 'smtp_code', 'N/A')}")
+            print(f"   SMTP Error: {getattr(smtp_error, 'smtp_error', 'N/A')}")
         except Exception as e:
-            print(f"❌ Email error: {e}")
+            import traceback
+            print(f"❌ Unexpected error: {e}")
+            logger.info("📝 Stack trace:")
+            traceback.print_exc()
 
 
 class HTTPDestination(Destination):
@@ -297,7 +339,7 @@ class LogDestination(Destination):
     async def send(self, message: Any) -> None:
         """Log message to console and optionally to a file"""
         log_msg = f"📝 {datetime.now().isoformat()}: {message}"
-        print(log_msg)
+        logger.info(log_msg)
 
         if self.log_file:
             try:

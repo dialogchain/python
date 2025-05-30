@@ -1,4 +1,7 @@
 .env.1
+info
+logs
+yolov8n.pt
 .idea
 .old
 .todo.txt
