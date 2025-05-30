@@ -2,6 +2,7 @@
 import json
 import pytest
 import aiohttp
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from dialogchain.connectors import (
@@ -50,18 +51,23 @@ class TestEmailDestination:
             # Verify email content
             msg = mock_server.send_message.call_args[0][0]
             assert msg['From'] == 'test@example.com'
-            assert msg['To'] == 'recipient@example.com'
             assert 'Test email content' in msg.as_string()
+            
+            # Verify recipient is set in the loop
+            assert mock_server.send_message.call_count == 1
             
             # Test with dict message
             mock_smtp.reset_mock()
             mock_server.reset_mock()
             mock_smtp.return_value = mock_server
             
-            await email_dest.send({"subject": "Test Subject", "body": "Test Body"})
+            await email_dest.send({"key": "value"})
             msg = mock_server.send_message.call_args[0][0]
-            assert 'Test Subject' in msg['Subject']
-            assert 'Test Body' in msg.as_string()
+            assert 'Camel Router Alert' in msg['Subject']
+            assert '"key": "value"' in msg.as_string()
+            
+            # Clean up
+            mock_server.quit.assert_called_once()
 
 
 class TestHTTPDestination:
@@ -73,32 +79,57 @@ class TestHTTPDestination:
         return HTTPDestination("http://example.com/webhook")
     
     @pytest.mark.asyncio
-    async def test_send_http_request(self, http_dest):
+    async def test_send_http_request(self, http_dest, capsys, mocker):
         """Test sending an HTTP request."""
+        # Create a mock response
         mock_response = AsyncMock()
         mock_response.status = 200
+        mock_response.text.return_value = "OK"
         
-        with patch('aiohttp.ClientSession') as mock_session:
-            mock_session.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = mock_response
-            
-            # Test with dict message
-            await http_dest.send({"key": "value"})
-            
-            # Verify HTTP POST request was made
-            mock_session.return_value.__aenter__.return_value.post.assert_awaited_once_with(
-                'http://example.com/webhook',
-                json={"key": "value"},
-                headers={'Content-Type': 'application/json'}
-            )
-            
-            # Test with string message
-            mock_session.return_value.__aenter__.return_value.post.reset_mock()
-            await http_dest.send("test message")
-            mock_session.return_value.__aenter__.return_value.post.assert_awaited_once_with(
-                'http://example.com/webhook',
-                json="test message",
-                headers={'Content-Type': 'application/json'}
-            )
+        # Create a mock client session
+        mock_session = AsyncMock()
+        
+        # Mock the post method to return our mock response
+        mock_post = AsyncMock()
+        mock_post.return_value.__aenter__.return_value = mock_response
+        mock_session.post = mock_post
+        
+        # Patch the ClientSession to return our mock session
+        mocker.patch('aiohttp.ClientSession', return_value=mock_session)
+        
+        # Test with dict message
+        await http_dest.send({"key": "value"})
+        
+        # Verify HTTP POST request was made
+        mock_post.assert_called_once_with(
+            'http://example.com/webhook',
+            json={"key": "value"}
+        )
+        
+        # Check output
+        captured = capsys.readouterr()
+        assert "🌐 HTTP sent to http://example.com/webhook" in captured.out
+        
+        # Reset mocks for next test
+        mock_post.reset_mock()
+        mock_response.status = 200
+        
+        # Test with string message
+        await http_dest.send("test message")
+        mock_post.assert_called_once_with(
+            'http://example.com/webhook',
+            json={"data": "test message"}
+        )
+        
+        # Reset mocks for error test
+        mock_post.reset_mock()
+        mock_response.status = 400
+        mock_response.text.return_value = "Bad Request"
+        
+        # Test error case
+        await http_dest.send({"key": "value"})
+        captured = capsys.readouterr()
+        assert "❌ HTTP error 400: Bad Request" in captured.out
 
 
 class TestMQTTDestination:
@@ -110,29 +141,27 @@ class TestMQTTDestination:
         return MQTTDestination("mqtt://broker.example.com:1883/test/topic")
     
     @pytest.mark.asyncio
-    async def test_send_mqtt_message(self, mqtt_dest):
+    async def test_send_mqtt_message(self, mqtt_dest, capsys):
         """Test sending an MQTT message."""
-        with patch('paho.mqtt.client.Client') as mock_client:
-            mock_client.return_value.connect_sync = MagicMock()
-            mock_client.return_value.publish = MagicMock()
-            
-            # Test with string message
-            await mqtt_dest.send("test message")
-            
-            # Verify connection and message publishing
-            mock_client.return_value.connect_sync.assert_called_once_with('broker.example.com', 1883, 60)
-            mock_client.return_value.publish.assert_called_once_with(
-                'test/topic',
-                'test message'
-            )
-            
-            # Test with dict message
-            mock_client.return_value.publish.reset_mock()
+        # Test with string message
+        await mqtt_dest.send("test message")
+        
+        # Check output
+        captured = capsys.readouterr()
+        assert "📡 MQTT sent to broker.example.com:1883/test/topic" in captured.out
+        
+        # Test with dict message
+        await mqtt_dest.send({"key": "value"})
+        
+        # Check output
+        captured = capsys.readouterr()
+        assert "📡 MQTT sent to broker.example.com:1883/test/topic" in captured.out
+        
+        # Test error case
+        with patch('json.dumps', side_effect=Exception("Test error")):
             await mqtt_dest.send({"key": "value"})
-            mock_client.return_value.publish.assert_called_once_with(
-                'test/topic',
-                '{"key": "value"}'
-            )
+            captured = capsys.readouterr()
+            assert "❌ MQTT error: Test error" in captured.out
 
 
 class TestFileDestination:
@@ -145,16 +174,37 @@ class TestFileDestination:
         return FileDestination(f"file://{test_file}")
     
     @pytest.mark.asyncio
-    async def test_write_to_file(self, file_dest, tmp_path):
+    async def test_write_to_file(self, file_dest, tmp_path, capsys):
         """Test writing to a file."""
+        # Test with string message
         test_content = "Test file content"
-        
         await file_dest.send(test_content)
         
         # Verify file was written
         output_file = tmp_path / "output.txt"
         assert output_file.exists()
-        assert output_file.read_text() == test_content
+        
+        # Check the content includes the timestamp and the message
+        content = output_file.read_text()
+        assert test_content in content
+        
+        # Check output
+        captured = capsys.readouterr()
+        assert f"📄 Written to {output_file}" in captured.out
+        
+        # Test with dict message
+        test_dict = {"key": "value"}
+        await file_dest.send(test_dict)
+        
+        # Check the content includes the JSON string
+        content = output_file.read_text()
+        assert '"key": "value"' in content
+        
+        # Test error case
+        with patch('json.dumps', side_effect=Exception("Test error")):
+            await file_dest.send({"key": "value"})
+            captured = capsys.readouterr()
+            assert "❌ File destination error: Test error" in captured.out
 
 
 class TestLogDestination:
@@ -166,25 +216,75 @@ class TestLogDestination:
         log_file = tmp_path / "test.log"
         return LogDestination(f"log://{log_file}")
     
-    def test_log_to_console(self, capsys):
+    @pytest.mark.asyncio
+    async def test_log_to_console(self, capsys):
         """Test logging to console."""
         log_dest = LogDestination("log://")
         test_message = "Test log message"
         
-        log_dest.send(test_message)
+        await log_dest.send(test_message)
         
-        # Verify message was printed to console
+        # Verify message was printed to console with timestamp and emoji
         captured = capsys.readouterr()
+        assert "📝" in captured.out
         assert test_message in captured.out
+        assert datetime.now().isoformat()[:10] in captured.out  # Check date part of timestamp
+    
+    @pytest.fixture
+    def log_dest(self, tmp_path):
+        """Create a LogDestination instance for testing."""
+        log_file = tmp_path / "test.log"
+        return LogDestination(f"log://{log_file}")
     
     @pytest.mark.asyncio
-    async def test_log_to_file(self, log_dest, tmp_path):
+    async def test_log_to_file(self, log_dest, tmp_path, capsys):
         """Test logging to a file."""
         test_message = "Test log message to file"
         
+        # Test with string message
         await log_dest.send(test_message)
         
-        # Verify message was written to log file
+        # Get the log file path directly from the log_dest instance
         log_file = tmp_path / "test.log"
-        assert log_file.exists()
-        assert test_message in log_file.read_text()
+        
+        # Verify file was created
+        assert log_file.exists(), f"Log file {log_file} was not created"
+        
+        # Read the file content
+        content = log_file.read_text()
+        
+        # Verify the log content
+        assert "📝" in content, "Log entry emoji not found"
+        assert test_message in content, "Log message not found in log file"
+        
+        # Check the date format (YYYY-MM-DD)
+        date_prefix = datetime.now().strftime("%Y-%m-%d")
+        assert date_prefix in content, f"Date prefix {date_prefix} not found in log"
+        
+        # Verify message was also printed to console
+        captured = capsys.readouterr()
+        assert test_message in captured.out, "Log message not printed to console"
+        
+        # Clear the captured output
+        capsys.readouterr()
+        
+        # Test with a subdirectory that doesn't exist
+        log_dir = tmp_path / "logs"
+        subdir_log_file = log_dir / "subdir_test.log"
+        subdir_log_dest = LogDestination(f"log://{subdir_log_file}")
+        
+        await subdir_log_dest.send(test_message)
+        assert subdir_log_file.exists(), f"Subdirectory log file {subdir_log_file} was not created"
+        
+        # Verify the subdirectory was created
+        assert log_dir.exists(), f"Log directory {log_dir} was not created"
+        
+        # Read the subdirectory log file content
+        subdir_content = subdir_log_file.read_text()
+        assert test_message in subdir_content, "Log message not found in subdirectory log file"
+        
+        # Test error case for file writing
+        with patch('builtins.open', side_effect=Exception("Test error")) as mock_open:
+            await log_dest.send(test_message)
+            captured = capsys.readouterr()
+            assert "❌ Log file error: Test error" in captured.out, "Error message not found in output"

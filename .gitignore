@@ -1,6 +1,7 @@
 .idea
 .old
 .todo.txt
+pyproject.toml.bak
 old
 cleanup_old_repo.sh
 poetry.lock

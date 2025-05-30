@@ -41,6 +41,11 @@ install:
 	pip install python-nmap opencv-python pycups
 	@echo "✅ DialogChain installed"
 
+venv:
+	python3 -m venv venv
+	source venv/bin/activate
+	@echo "✅ Virtual environment created"
+
 dev: install
 	pip install -e ".[dev]"
 	@echo "✅ Development environment ready"
@@ -62,7 +67,7 @@ install-deps:
 	@which cargo > /dev/null && echo "✅ Rust found: $$(cargo --version)"
 
 # Development
-test: test-unit test-integration test-e2e
+test: venv test-unit test-integration test-e2e
 
 # Run unit tests
 test-unit:
@@ -184,7 +189,7 @@ endef
 PYPI_TOKEN_FROM_FILE := $(call get_pypi_token)
 
 # Publishing
-publish:
+publish: venv
 	@echo "🔄 Bumping version..."
 	poetry version patch
 	@echo "🧹 Cleaning build artifacts..."
@@ -258,7 +263,7 @@ docker-run: docker
 		dialogchain run -c examples/simple_routes.yaml
 
 # Examples and setup
-setup-env:
+setup-env: venv
 	@if [ ! -f .env ]; then \
 		if [ -f .env.example ]; then \
 			cp .env.example .env; \
