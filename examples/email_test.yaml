@@ -1,0 +1,25 @@
+routes:
+  - name: email_test
+    from: "timer://5s"
+    to:
+      - "log:info"
+      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}&subject=Test Email {{ now().strftime('%H:%M:%S') }}"
+
+# Required environment variables
+env_vars:
+  - SMTP_SERVER    # e.g., smtp.yourprovider.com
+  - SMTP_PORT      # e.g., 587 for STARTTLS, 465 for SSL
+  - SMTP_USER      # Your SMTP username
+  - SMTP_PASS      # Your SMTP password
+  - ALERT_EMAIL    # Recipient email address
+
+# SMTP server settings reference:
+# - For Gmail: smtp.gmail.com:587 (STARTTLS) or 465 (SSL)
+# - For Outlook/Hotmail: smtp.office365.com:587
+# - For Yahoo: smtp.mail.yahoo.com:465
+# - For iCloud: smtp.mail.me.com:587
+# - For other providers, check their documentation
+
+settings:
+  log_level: "debug"
+  max_concurrent_routes: 1
