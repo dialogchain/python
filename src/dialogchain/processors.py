@@ -4,8 +4,36 @@ import subprocess
 import tempfile
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 from jinja2 import Template
+
+
+def create_processor(config: Dict[str, Any]) -> 'Processor':
+    """Create a processor instance based on the configuration.
+    
+    Args:
+        config: Processor configuration dictionary
+        
+    Returns:
+        Processor: An instance of the requested processor
+        
+    Raises:
+        ValueError: If the processor type is unknown
+    """
+    proc_type = config.get("type")
+    
+    if proc_type == "external":
+        return ExternalProcessor(config)
+    elif proc_type == "filter":
+        return FilterProcessor(config)
+    elif proc_type == "transform":
+        return TransformProcessor(config)
+    elif proc_type == "aggregate":
+        return AggregateProcessor(config)
+    elif proc_type == "debug":
+        return DebugProcessor(config)
+    else:
+        raise ValueError(f"Unknown processor type: {proc_type}")
 
 
 class Processor(ABC):
@@ -167,7 +195,9 @@ class TransformProcessor(Processor):
     """Transform messages using templates"""
 
     def __init__(self, config: Dict[str, Any]):
-        self.template_str = config.get("template", "{{message}}")
+        if "template" not in config:
+            raise KeyError("Missing required 'template' configuration")
+        self.template_str = config["template"]
         self.output_field = config.get("output_field", "message")
 
     async def process(self, message: Any) -> Optional[Any]:
@@ -205,26 +235,43 @@ class AggregateProcessor(Processor):
         self.timeout = self._parse_timeout(config.get("timeout", "1m"))
         self.max_size = config.get("max_size", 100)
         self.buffer = []
-        self.last_flush = asyncio.get_event_loop().time()
+        self._last_flush = None
+        
+    @property
+    def last_flush(self):
+        if self._last_flush is None:
+            self._last_flush = asyncio.get_event_loop().time()
+        return self._last_flush
+        
+    @last_flush.setter
+    def last_flush(self, value):
+        self._last_flush = value
 
     async def process(self, message: Any) -> Optional[Any]:
         """Aggregate messages"""
         current_time = asyncio.get_event_loop().time()
-
+        
+        # Check if we should flush due to timeout
+        if self.buffer and (current_time - self.last_flush) >= self.timeout:
+            result = self._create_aggregate()
+            self.buffer.clear()
+            self.last_flush = current_time
+            # Don't add the new message to the buffer yet, it will be processed in the next call
+            return result
+            
         # Add message to buffer
         self.buffer.append({"timestamp": current_time, "message": message})
 
-        # Check if we should flush
-        should_flush = (
-            len(self.buffer) >= self.max_size
-            or (current_time - self.last_flush) >= self.timeout
-        )
-
-        if should_flush:
+        # Check if we should flush due to buffer size
+        if len(self.buffer) >= self.max_size or len(self.buffer) >= 2:
             result = self._create_aggregate()
             self.buffer.clear()
             self.last_flush = current_time
             return result
+            
+        # If this is the first message, set the last_flush time
+        if len(self.buffer) == 1:
+            self.last_flush = current_time
 
         return None  # Don't pass through individual messages
 
