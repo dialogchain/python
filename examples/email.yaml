@@ -1,0 +1,75 @@
+# Advanced Camera Processing Routes
+# Demonstrates multi-stage processing with different languages
+
+routes:
+
+  - name: "camera_health_monitoring"
+    from: "timer://5s"
+    
+    processors:
+      - type: "external"
+        command: "python scripts/camera_health_check.py"
+        config:
+          camera_endpoints: "{{CAMERA_HEALTH_ENDPOINTS}}"
+          timeout: 10
+          expected_fps: 25
+      
+      - type: "filter"
+        condition: >
+          {{ (result is defined and result.status is defined and result.status != 'healthy') or 
+             (result is defined and result.cameras is defined and 
+              result.cameras|selectattr('status', 'equalto', 'healthy')|list|length < result.cameras|length) }}
+        on_error: "log:Failed to process camera status check: {{ error }}"
+      
+      - type: "transform"
+        template: |
+          📷 Camera Health Alert
+          
+          Status: {{ '❌ Unhealthy' if result.status == 'error' else '⚠️ Degraded' }}
+          
+          {% if result.cameras is defined %}
+          Camera Status:
+          {% for camera in result.cameras %}
+          • {{ camera.camera }}: {{ '✅ Healthy' if camera.status == 'healthy' else '❌ ' + (camera.status|capitalize) }}
+            Message: {{ camera.message }}
+            FPS: {{ camera.fps|default('N/A') }}
+            
+          {% endfor %}
+          {% else %}
+          Message: {{ result.message|default('No status message available') }}
+          FPS: {{ result.fps|default('N/A') }}
+          {% endif %}
+          
+          Timestamp: {{ now()|datetime }}
+    
+    to:
+      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}&subject=📷 Camera Health Alert"
+      - "log://logs/security_{{CAMERA_NAME}}.log"
+
+
+env_vars:
+  - CAMERA_USER
+  - CAMERA_PASS
+  - CAMERA_IP
+  - CAMERA_NAME
+  - BACKUP_CAMERA_USER
+  - BACKUP_CAMERA_PASS
+  - BACKUP_CAMERA_IP
+  - SMTP_SERVER
+  - SMTP_PORT
+  - SMTP_USER
+  - SMTP_PASS
+  - SECURITY_EMAIL
+  - ADMIN_EMAIL
+  - SECURITY_WEBHOOK
+  - MQTT_BROKER
+  - CAMERA_HEALTH_ENDPOINTS
+
+settings:
+  max_concurrent_routes: 5
+  default_timeout: 60
+  log_level: "info"
+  metrics_enabled: true
+  health_check_port: 8080
+  frame_skip_ratio: 3
+  max_memory_usage: "2GB"

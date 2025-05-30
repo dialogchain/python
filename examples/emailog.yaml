@@ -1,0 +1,28 @@
+# Simple Email Logger Configuration
+routes:
+  - name: email_logger
+    from: "timer://5s"  # Trigger every 5 seconds
+    
+    processors:
+      - type: transform
+        template: |
+          {
+            "message": "Hello {{ now().strftime('%Y-%m-%d %H:%M:%S') }}",
+            "timestamp": "{{ now().isoformat() }}"
+          }
+    
+    to:
+      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}&subject=Log Message {{ now().strftime('%H:%M:%S') }}"
+      - "log:info"
+
+# Required environment variables
+env_vars:
+  - SMTP_SERVER
+  - SMTP_PORT
+  - SMTP_USER
+  - SMTP_PASS
+  - ALERT_EMAIL
+
+settings:
+  log_level: "info"
+  max_concurrent_routes: 1
