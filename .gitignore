@@ -2,6 +2,7 @@
 info
 logs
 yolov8n.pt
+logs.db
 .idea
 .old
 .todo.txt
