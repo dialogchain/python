@@ -8,6 +8,8 @@ import cups
 import argparse
 import sys
 from typing import Dict, Any, Optional
+from dialogchain.utils.logger import setup_logger
+logger = setup_logger(__name__)
 
 def list_printers() -> Dict[str, Dict[str, Any]]:
     """List all available printers."""
@@ -32,7 +34,7 @@ def print_text(text: str, printer_name: Optional[str] = None) -> int:
             return 1
             
         if printer_name and printer_name not in printers:
-            print(f"❌ Printer '{printer_name}' not found")
+            logger.error(f"❌ Printer '{printer_name}' not found")
             print("\nAvailable printers:")
             for name, attrs in printers.items():
                 print(f"- {name} ({attrs.get('device-uri', 'no URI')})")
@@ -51,7 +53,7 @@ def print_text(text: str, printer_name: Optional[str] = None) -> int:
         return 0
         
     except cups.IPPError as e:
-        print(f"❌ Print error: {e}")
+        logger.error(f"❌ Print error: {e}")
         return 1
 
 def main() -> int:
@@ -139,7 +141,7 @@ def main() -> int:
                         content = f.read()
                     print(f"📄 Printing file: {args.file}")
                 except Exception as e:
-                    print(f"❌ Error reading file: {e}")
+                    logger.error(f"❌ Error reading file: {e}")
                     return 1
             else:
                 content = args.text

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import smtplib
+import ssl
 import aiohttp
 import cv2
 import os
@@ -216,22 +217,30 @@ class EmailDestination(Destination):
             # Format message body
             if isinstance(message, dict):
                 body = json.dumps(message, indent=2)
-                print(f"ℹ️  Message is a dictionary, converting to JSON")
+                logger.info(f"ℹ️  Message is a dictionary, converting to JSON")
             else:
                 body = str(message)
-                print(f"ℹ️  Message is a string, length: {len(body)} characters")
+                logger.info(f"ℹ️  Message is a string, length: {len(body)} characters")
 
             msg.attach(MIMEText(body, "plain"))
-            print(f"✉️  Message prepared, connecting to SMTP server...")
+            logger.info(f"✉️  Message prepared, connecting to SMTP server...")
 
             # SMTP connection and sending
-            server = smtplib.SMTP(self.server, self.port, timeout=10)
-            print(f"🔌 Connected to SMTP server: {self.server}:{self.port}")
+            logger.info(f"🔌 Connecting to SMTP server: {self.server}:{self.port}")
             
-            server.starttls()
-            logger.info("🔒 Started TLS encryption")
+            # Use SMTP_SSL for port 465, regular SMTP for other ports with STARTTLS
+            if self.port == 465:
+                logger.info("🔒 Using SSL/TLS (port 465)")
+                context = ssl.create_default_context()
+                server = smtplib.SMTP_SSL(self.server, self.port, timeout=10, context=context)
+                logger.info("✅ Established SSL connection")
+            else:
+                logger.info("🔓 Using STARTTLS (port 587 or other)")
+                server = smtplib.SMTP(self.server, self.port, timeout=10)
+                server.starttls()
+                logger.info("✅ STARTTLS negotiation successful")
             
-            print(f"🔑 Authenticating user: {self.user}")
+            logger.info(f"🔑 Authenticating user: {self.user}")
             server.login(self.user, self.password)
             logger.info("✅ Authentication successful")
 
@@ -244,25 +253,25 @@ class EmailDestination(Destination):
                     
                 try:
                     msg["To"] = clean_recipient
-                    print(f"📤 Sending to: {clean_recipient}")
+                    logger.info(f"📤 Sending to: {clean_recipient}")
                     server.send_message(msg)
                     del msg["To"]
                     success_count += 1
-                    print(f"✅ Successfully sent to: {clean_recipient}")
+                    logger.info(f"✅ Successfully sent to: {clean_recipient}")
                 except Exception as send_error:
-                    print(f"❌ Failed to send to {clean_recipient}: {send_error}")
+                    logger.error(f"❌ Failed to send to {clean_recipient}: {send_error}")
 
             server.quit()
-            print(f"📬 Email sending complete. Successfully sent to {success_count}/{len(self.recipients)} recipients")
+            logger.info(f"📬 Email sending complete. Successfully sent to {success_count}/{len(self.recipients)} recipients")
 
         except smtplib.SMTPException as smtp_error:
-            print(f"❌ SMTP Error: {smtp_error}")
-            print(f"   SMTP Code: {getattr(smtp_error, 'smtp_code', 'N/A')}")
-            print(f"   SMTP Error: {getattr(smtp_error, 'smtp_error', 'N/A')}")
+            logger.error(f"❌ SMTP Error: {smtp_error}")
+            logger.error(f"   SMTP Code: {getattr(smtp_error, 'smtp_code', 'N/A')}")
+            logger.error(f"   SMTP Error: {getattr(smtp_error, 'smtp_error', 'N/A')}")
         except Exception as e:
             import traceback
-            print(f"❌ Unexpected error: {e}")
-            logger.info("📝 Stack trace:")
+            logger.error(f"❌ Unexpected error: {e}")
+            logger.error("📝 Stack trace:")
             traceback.print_exc()
 
 
@@ -279,13 +288,13 @@ class HTTPDestination(Destination):
                 data = message if isinstance(message, dict) else {"data": message}
                 async with session.post(self.uri, json=data) as response:
                     if response.status == 200:
-                        print(f"🌐 HTTP sent to {self.uri}")
+                        logger.info(f"🌐 HTTP sent to {self.uri}")
                     else:
-                        print(
+                        logger.error(
                             f"❌ HTTP error {response.status}: {await response.text()}"
                         )
         except Exception as e:
-            print(f"❌ HTTP destination error: {e}")
+            logger.error(f"❌ HTTP destination error: {e}")
 
 
 class MQTTDestination(Destination):
@@ -302,10 +311,10 @@ class MQTTDestination(Destination):
         try:
             # Note: Would need asyncio-mqtt library
             payload = json.dumps(message) if isinstance(message, dict) else str(message)
-            print(f"📡 MQTT sent to {self.broker}:{self.port}/{self.topic}")
+            logger.info(f"📡 MQTT sent to {self.broker}:{self.port}/{self.topic}")
             # Implementation would use actual MQTT client
         except Exception as e:
-            print(f"❌ MQTT error: {e}")
+            logger.error(f"❌ MQTT error: {e}")
 
 
 class FileDestination(Destination):
@@ -321,9 +330,9 @@ class FileDestination(Destination):
             content = json.dumps(message) if isinstance(message, dict) else str(message)
             with open(self.path, "a") as f:
                 f.write(f"{datetime.now().isoformat()}: {content}\n")
-            print(f"📄 Written to {self.path}")
+            logger.info(f"📄 Written to {self.path}")
         except Exception as e:
-            print(f"❌ File destination error: {e}")
+            logger.error(f"❌ File destination error: {e}")
 
 
 class LogDestination(Destination):
@@ -351,7 +360,7 @@ class LogDestination(Destination):
                 with open(self.log_file, "a", encoding="utf-8") as f:
                     f.write(log_msg + "\n")
             except Exception as e:
-                print(f"❌ Log file error: {e}")
+                logger.error(f"❌ Log file error: {e}")
 
 
 class GRPCDestination(Destination):
@@ -364,6 +373,6 @@ class GRPCDestination(Destination):
         """Send gRPC message"""
         try:
             # Implementation would depend on specific gRPC service
-            print(f"🔗 gRPC sent to {self.uri}")
+            logger.info(f"🔗 gRPC sent to {self.uri}")
         except Exception as e:
-            print(f"❌ gRPC destination error: {e}")
+            logger.error(f"❌ gRPC destination error: {e}")

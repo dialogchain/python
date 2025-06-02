@@ -10,6 +10,8 @@ import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+from dialogchain.utils.logger import setup_logger
+logger = setup_logger(__name__)
 
 def test_smtp_connection(server, port, username, password, recipient):
     """Test SMTP connection and send a test email."""
@@ -34,7 +36,7 @@ def test_smtp_connection(server, port, username, password, recipient):
                 print("✅ Email sent successfully using STARTTLS")
                 return True
         except Exception as e:
-            print(f"❌ STARTTLS failed: {e}")
+            logger.error(f"❌ STARTTLS failed: {e}")
             
         # Try SSL (port 465)
         try:
@@ -46,12 +48,12 @@ def test_smtp_connection(server, port, username, password, recipient):
                 print("✅ Email sent successfully using SSL")
                 return True
         except Exception as e:
-            print(f"❌ SSL failed: {e}")
+            logger.error(f"❌ SSL failed: {e}")
             
         return False
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        logger.error(f"❌ Error: {e}")
         return False
 
 if __name__ == "__main__":
