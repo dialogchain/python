@@ -102,14 +102,30 @@ class TimerSource(Source):
         self.interval = self._parse_interval(interval)
 
     async def receive(self) -> AsyncIterator[Dict[str, Any]]:
-        """Yield timer events"""
-        while True:
-            yield {
-                "type": "timer_event",
-                "timestamp": datetime.now().isoformat(),
-                "interval": self.interval,
-            }
-            await asyncio.sleep(self.interval)
+        """Yield timer events
+        
+        Yields:
+            Dictionary with timer event data
+        """
+        logger = setup_logger(__name__)
+        logger.info(f"⏱️  Timer source started with interval: {self.interval}s")
+        
+        try:
+            while True:
+                event = {
+                    "type": "timer_event",
+                    "timestamp": datetime.now().isoformat(),
+                    "interval": self.interval,
+                }
+                logger.debug(f"⏱️  Timer event: {event}")
+                yield event
+                await asyncio.sleep(self.interval)
+        except asyncio.CancelledError:
+            logger.info("⏱️  Timer source cancelled")
+            raise
+        except Exception as e:
+            logger.error(f"⏱️  Timer source error: {e}")
+            raise
 
     def _parse_interval(self, interval_str: str) -> float:
         """Parse interval string to seconds
@@ -749,52 +765,56 @@ class FileDestination(Destination):
 
 
 class LogDestination(Destination):
-    """Log destination for both console and file logging"""
+    """Log destination for both console and file logging
+    
+    URI format: log:info or log:debug or log:error
+    """
 
     def __init__(self, uri: str):
         parsed = urlparse(uri)
-        # Handle different URI formats:
-        # - log:relative/path
-        # - log:///absolute/path
-        # - log://hostname/absolute/path
-        # - log://relative/path
-        if parsed.scheme == 'log' and not parsed.netloc and not parsed.path.startswith('//'):
-            # Case: log:relative/path
-            self.log_file = parsed.path
-        elif parsed.scheme == 'log' and parsed.netloc and not parsed.path:
-            # Case: log://hostname (without path)
-            self.log_file = parsed.netloc
-        elif parsed.scheme == 'log' and (parsed.netloc or parsed.path):
-            # Case: log:///path or log://hostname/path
-            self.log_file = parsed.path.lstrip('/') or parsed.netloc
-        else:
-            self.log_file = None
+        # Extract log level from URI (e.g., 'log:info' -> 'info')
+        self.log_level = parsed.path.upper() if parsed.path else 'INFO'
+        if self.log_level not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+            self.log_level = 'INFO'
+            
+        self.logger = setup_logger('dialogchain.destination.log')
+        self.logger.info(f" Log destination initialized with level: {self.log_level}")
 
     async def send(self, message: Any) -> None:
-        """Log message to console and optionally to a file"""
-        log_msg = f"📝 {datetime.now().isoformat()}: {message}"
+        """Log message with the specified log level
         
-        # Always print to console
-        print(log_msg)
-        
-        # Also log using the logger
-        logger.info(log_msg)
+        Args:
+            message: The message to log. Can be a string or any JSON-serializable object.
+            
+        Raises:
+            Exception: If there's an error processing the message
+        """
+        try:
+            # Convert message to string if it's not already
+            if not isinstance(message, (str, bytes)):
+                try:
+                    message = json.dumps(message, indent=2, default=str)
+                except (TypeError, ValueError) as e:
+                    self.logger.warning(f"Could not convert message to JSON: {e}")
+                    message = str(message)
 
-        if self.log_file:
-            try:
-                # Ensure directory exists
-                log_dir = os.path.dirname(self.log_file)
-                if log_dir and not os.path.exists(log_dir):
-                    os.makedirs(log_dir, exist_ok=True)
-
-                # Make sure to use absolute path
-                abs_log_file = os.path.abspath(self.log_file)
-                with open(abs_log_file, "a", encoding="utf-8") as f:
-                    f.write(log_msg + "\n")
-            except Exception as e:
-                error_msg = f"❌ Log file error: {e}"
-                print(error_msg)
-                logger.error(error_msg)
+            # Log with the appropriate level
+            if self.log_level == 'DEBUG':
+                self.logger.debug(message)
+            elif self.log_level == 'INFO':
+                self.logger.info(message)
+            elif self.log_level == 'WARNING':
+                self.logger.warning(message)
+            elif self.log_level == 'ERROR':
+                self.logger.error(message)
+            elif self.log_level == 'CRITICAL':
+                self.logger.critical(message)
+            else:
+                self.logger.info(message)  # Default to info
+                
+        except Exception as e:
+            self.logger.error(f"Error in LogDestination.send: {e}")
+            raise
 
 
 class GRPCDestination(Destination):

@@ -55,28 +55,46 @@ def run(config, env_file, route, dry_run, verbose):
     # Run routes
     try:
         if route:
-            # Find the specific route by name
             route_config = next((r for r in config_data.get('routes', []) if r.get('name') == route), None)
             if not route_config:
                 click.echo(f"❌ Route '{route}' not found in configuration", err=True)
                 return
                 
+            if verbose:
+                click.echo(f"🚀 Starting route: {route}")
+                
             # Create source and destination
-            source = engine.create_source(route_config['from'])
-            destination = engine.create_destination(route_config['to'])
+            source = engine.create_source(route_config.get('from'))
+            destination = engine.create_destination(route_config.get('to'))
+            
+            if verbose:
+                click.echo(f"🔌 Source: {type(source).__name__}")
+                click.echo(f"🎯 Destination: {type(destination).__name__}")
             
             # Run the specific route
-            asyncio.run(engine.run_route(route_config, source, destination))
+            asyncio.run(engine.run_route_config(route_config, source, destination))
+            
+            if verbose:
+                click.echo(f"✅ Completed route: {route}")
+                
         else:
+            if verbose:
+                click.echo("🚀 Starting all routes...")
             # Run all routes
             asyncio.run(engine.run_all_routes())
+            if verbose:
+                click.echo("✅ All routes completed")
+                
     except KeyboardInterrupt:
-        click.echo("\n🛑 Shutting down...")
+        click.echo("\n🛑 Operation cancelled by user")
     except Exception as e:
-        click.echo(f"❌ Error: {e}", err=True)
+        click.echo(f"❌ Error running routes: {e}", err=True)
         if verbose:
             import traceback
             traceback.print_exc()
+        return 1
+        
+    return 0
 
 
 def update_env_file(env_path, required_vars):

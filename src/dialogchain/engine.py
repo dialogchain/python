@@ -62,20 +62,32 @@ def parse_uri(uri: str) -> Tuple[str, str]:
 
 class DialogChainEngine:
     def __init__(self, config: Dict[str, Any], verbose: bool = False):
+        # Initialize logger first
+        self.logger = setup_logger(__name__)
+        self.logger.info("🔧 Initializing DialogChainEngine")
+        
         self.config = config
         self.verbose = verbose
         self.routes = config.get("routes", [])
         self.running_processes = {}
         self._is_running = False
         self._tasks = []
+        
+        self.logger.info(f"🔧 Loaded {len(self.routes)} routes from config")
+        if self.verbose:
+            self.logger.info(f"🔧 Verbose mode enabled")
 
         # Validate the configuration on initialization
+        self.logger.info("🔧 Validating configuration...")
         errors = self.validate_config()
         if errors:
             error_msg = "Invalid configuration:\n" + "\n".join(
                 f"- {error}" for error in errors
             )
+            self.logger.error(f"❌ Configuration validation failed: {error_msg}")
             raise ValueError(error_msg)
+            
+        self.logger.info("✅ Engine initialized successfully")
             
     @property
     def is_running(self) -> bool:
@@ -109,7 +121,7 @@ class DialogChainEngine:
                     await destination.connect()
 
                 # Create and store task
-                task = asyncio.create_task(self.run_route(route, source, destination))
+                task = asyncio.create_task(self.run_route_config(route, source, destination))
                 self._tasks.append(task)
                 
             self.log("Engine started successfully")
@@ -176,7 +188,7 @@ class DialogChainEngine:
                 
                 # Create and start task for this route
                 task = asyncio.create_task(
-                    self.run_route(route_config, source, destination)
+                    self.run_route_config(route_config, source, destination)
                 )
                 tasks.append(task)
                 
@@ -194,7 +206,7 @@ class DialogChainEngine:
         self.log(f"Starting {len(tasks)} routes...")
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def run_route(self, route: Dict[str, Any], source: Source, destination: Destination):
+    async def run_route_config(self, route: Dict[str, Any], source: Source, destination: Destination):
         """Run a specific route with the given source and destination
         
         Args:
@@ -206,7 +218,19 @@ class DialogChainEngine:
         It runs the route configuration with the provided source and destination.
         """
         route_name = route.get("name", "unnamed")
+        logger.info(f"🔧 Starting route: {route_name}")
+        logger.info(f"🔧 Route config: {route}")
+        logger.info(f"🔧 Source type: {type(source).__name__}")
+        logger.info(f"🔧 Destination type: {type(destination).__name__}")
         self.log(f"Starting route: {route_name}")
+        
+        if not source:
+            logger.error(f"❌ No source provided for route: {route_name}")
+            return
+            
+        if not destination:
+            logger.error(f"❌ No destination provided for route: {route_name}")
+            return
         
         try:
             # Connect to source if not already connected
@@ -447,6 +471,49 @@ class DialogChainEngine:
             return HTTPDestination(uri, **config)
         elif scheme == "file":
             return FileDestination(path, **config)
+        elif scheme == "log":
+            # Handle log destination (e.g., log:info, log:error)
+            log_level = path.upper() if path else "INFO"
+            
+            # Create a simple destination that logs messages
+            class LogDestination:
+                def __init__(self, level):
+                    self.level = level
+                    self.sent_messages = []
+                    
+                async def send(self, message):
+                    log_message = f"[Log Destination] {message}"
+                    if self.level == "DEBUG":
+                        self.logger.debug(log_message)
+                    elif self.level == "INFO":
+                        self.logger.info(log_message)
+                    elif self.level == "WARNING":
+                        self.logger.warning(log_message)
+                    elif self.level == "ERROR":
+                        self.logger.error(log_message)
+                    elif self.level == "CRITICAL":
+                        self.logger.critical(log_message)
+                    else:
+                        self.logger.info(log_message)  # Default to info
+                    
+                    # Store the message for testing/verification
+                    self.sent_messages.append(message)
+                    return True
+                    
+                async def connect(self):
+                    pass
+                    
+                async def disconnect(self):
+                    pass
+                    
+                async def __aenter__(self):
+                    return self
+                    
+                async def __aexit__(self, exc_type, exc_val, exc_tb):
+                    pass
+            
+            return LogDestination(log_level)
+            
         elif scheme == "mock":
             # For testing purposes
             from unittest.mock import AsyncMock
