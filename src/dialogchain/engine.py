@@ -34,8 +34,8 @@ def parse_uri(uri: str) -> Tuple[str, str]:
     """
     if "://" in uri:
         # Handle standard URIs with ://
-        parsed = urlparse(uri)
-        return parsed.scheme, uri.split("://", 1)[1]
+        scheme, path = uri.split("://", 1)
+        return scheme, f"//{path}"  # Ensure path starts with // for standard URIs
     elif ":" in uri:
         # Handle simple URIs with just a scheme:path
         scheme, path = uri.split(":", 1)
@@ -50,6 +50,8 @@ class DialogChainEngine:
         self.verbose = verbose
         self.routes = config.get("routes", [])
         self.running_processes = {}
+        self._is_running = False
+        self._tasks = []
 
         # Validate the configuration on initialization
         errors = self.validate_config()
@@ -58,6 +60,60 @@ class DialogChainEngine:
                 f"- {error}" for error in errors
             )
             raise ValueError(error_msg)
+            
+    @property
+    def is_running(self) -> bool:
+        """Return whether the engine is currently running."""
+        return self._is_running
+        
+    async def start(self):
+        """Start the engine and all routes."""
+        if self._is_running:
+            return
+            
+        self._is_running = True
+        self.log("Starting DialogChain engine...")
+        
+        # Start all routes
+        for route in self.routes:
+            task = asyncio.create_task(self.run_route_config(route))
+            self._tasks.append(task)
+    
+    async def stop(self):
+        """Stop the engine and all running routes."""
+        if not self._is_running:
+            return
+            
+        self.log("Stopping DialogChain engine...")
+        self._is_running = False
+        
+        # Cancel all running tasks
+        for task in self._tasks:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+                
+        self._tasks = []
+    
+    async def run(self):
+        """Run the engine until stopped."""
+        await self.start()
+        try:
+            while self._is_running:
+                await asyncio.sleep(0.1)
+        except asyncio.CancelledError:
+            await self.stop()
+    
+    async def __aenter__(self):
+        """Async context manager entry."""
+        await self.start()
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.stop()
 
     def log(self, message: str):
         if self.verbose:

@@ -25,10 +25,23 @@ os.environ["PYTHONASYNCIODEBUG"] = "0"
 # Common fixtures
 @pytest.fixture(scope="session")
 def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
-    """Create an instance of the default event loop for the test session."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+    """Create an instance of the default event loop for the test session.
+    
+    This fixture is used by pytest-asyncio to manage the event loop for async tests.
+    """
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
+    
+    # Set the event loop for the current OS thread
+    asyncio.set_event_loop(loop)
+    
+    try:
+        yield loop
+    finally:
+        # Cleanup
+        loop.run_until_complete(loop.shutdown_asyncgens())
+        loop.close()
+        asyncio.set_event_loop(None)
 
 
 @pytest.fixture(autouse=True)
