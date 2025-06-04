@@ -145,24 +145,45 @@ class FilterProcessor(Processor):
     """Filter messages based on conditions"""
 
     def __init__(self, config: Dict[str, Any]):
-        self.condition = config["condition"]
+        self.config = config
+        self.min_confidence = config.get("min_confidence")
+        self.condition = config.get("condition")
+        
+        if self.min_confidence is None and self.condition is None:
+            raise ValueError("FilterProcessor requires either 'min_confidence' or 'condition' in config")
 
     async def process(self, message: Any) -> Optional[Any]:
-        """Filter message based on condition"""
+        """Filter message based on condition or min_confidence"""
         try:
-            # Prepare context for condition evaluation
-            if isinstance(message, dict):
-                context = message.copy()
-            else:
-                context = {"message": message}
-
-            # Evaluate condition directly using the context
-            if self._evaluate_condition(self.condition, context):
+            # Handle min_confidence filter
+            if self.min_confidence is not None:
+                if not isinstance(message, dict):
+                    return None
+                
+                # Check if message has a confidence field and it meets the threshold
+                confidence = message.get('confidence', 0)
+                if not isinstance(confidence, (int, float)) or confidence < self.min_confidence:
+                    return None
                 return message
-            return None
+                
+            # Handle condition-based filtering
+            if self.condition is not None:
+                # Prepare context for condition evaluation
+                if isinstance(message, dict):
+                    context = message.copy()
+                else:
+                    context = {"message": message}
+
+                # Evaluate condition directly using the context
+                if self._evaluate_condition(self.condition, context):
+                    return message
+                return None
+                
+            # If no filtering conditions are met, pass the message through
+            return message
 
         except Exception as e:
-            print(f"❌ Filter processor error: {e}")
+            logger.error(f"Filter processor error: {e}")
             # Pass through the message on error as per test expectation
             return message
 

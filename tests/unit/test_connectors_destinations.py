@@ -79,54 +79,51 @@ class TestHTTPDestination:
         return HTTPDestination("http://example.com/webhook")
     
     @pytest.mark.asyncio
-    async def test_send_http_request(self, http_dest, capsys, monkeypatch):
+    @patch('aiohttp.ClientSession')
+    async def test_send_http_request(self, mock_session_class, http_dest, capsys):
         """Test sending an HTTP request."""
-        # Create a mock response
-        mock_response = AsyncMock()
-        mock_response.status = 200
+        # Create a mock response for successful request
+        mock_response_success = AsyncMock()
+        mock_response_success.status = 200
+        mock_response_success.text = AsyncMock(return_value="OK")
         
-        # Mock the text() coroutine
-        async def mock_text():
-            return "OK"
-        mock_response.text = mock_text
+        # Create a mock response for error case
+        mock_response_error = AsyncMock()
+        mock_response_error.status = 400
+        mock_response_error.text = AsyncMock(return_value="Bad Request")
         
-        # Create a mock post method with async context manager
-        class MockPostContext:
-            def __init__(self, response):
-                self.response = response
-            
-            async def __aenter__(self):
-                return self.response
+        # Create a mock session
+        mock_session = AsyncMock()
+        
+        # Configure the post method to return different responses based on the call count
+        async def mock_post(*args, **kwargs):
+            mock_post.call_count += 1
+            if mock_post.call_count == 1:
+                # First call - success
+                mock_response_success.json = AsyncMock(return_value={"status": "success"})
+                return mock_response_success
+            elif mock_post.call_count == 2:
+                # Second call - success with string message
+                mock_response_success.json = AsyncMock(return_value={"status": "success"})
+                return mock_response_success
+            else:
+                # Third call - error
+                return mock_response_error
                 
-            async def __aexit__(self, exc_type, exc, tb):
-                pass
+        mock_post.call_count = 0
+        mock_session.post.side_effect = mock_post
         
-        # Create a mock session with our post method
-        class MockSession:
-            def __init__(self):
-                self.post_calls = []
-            
-            async def post(self, url, **kwargs):
-                self.post_calls.append((url, kwargs))
-                return MockPostContext(mock_response)
-                
-            async def __aenter__(self):
-                return self
-                
-            async def __aexit__(self, exc_type, exc, tb):
-                pass
+        # Configure session context manager
+        mock_session.__aenter__.return_value = mock_session
+        mock_session.__aexit__.return_value = None
         
-        # Create a mock ClientSession class
-        async def mock_client_session(*args, **kwargs):
-            return MockSession()
-            
-        # Patch the ClientSession
-        monkeypatch.setattr('aiohttp.ClientSession', mock_client_session)
+        # Configure session class to return our mock session
+        mock_session_class.return_value = mock_session
         
         # Test with dict message
         await http_dest.send({"key": "value"})
         
-        # Check output
+        # Check output for success
         captured = capsys.readouterr()
         assert "🌐 HTTP sent to http://example.com/webhook" in captured.out
         
@@ -136,12 +133,6 @@ class TestHTTPDestination:
         assert "🌐 HTTP sent to http://example.com/webhook" in captured.out
         
         # Test error case
-        mock_response.status = 400
-        
-        async def mock_error_text():
-            return "Bad Request"
-        mock_response.text = mock_error_text
-        
         await http_dest.send({"key": "value"})
         captured = capsys.readouterr()
         assert "❌ HTTP error 400: Bad Request" in captured.out
