@@ -1,0 +1,74 @@
+# Email Invoice Processor Configuration
+# Uses URL-style configuration with .env variable support
+
+routes:
+  - name: "email_invoice_processor"
+    description: "Process email attachments for invoices"
+
+    # Source configuration (IMAP server)
+    from: "imap://{{EMAIL_USER}}:{{EMAIL_PASSWORD}}@{{EMAIL_SERVER}}:{{EMAIL_PORT}}/INBOX"
+
+    # Processors configuration
+    processors:
+      # Step 1: Filter emails from specific month
+      - type: "filter"
+        condition: "{{date|date('%Y-%m')}} == '{{YEAR|default(now|date('%Y'))}}-{{'%02d'|format(MONTH|default(now.month))}}'"
+
+      # Step 2: Extract attachments
+      - type: "external"
+        command: "python -m email_invoice_processor.processor"
+        input_format: "email"
+        output_format: "json"
+        config:
+          output_dir: "{{OUTPUT_DIR|default('./output')}}"
+          supported_extensions: [".pdf", ".jpg", ".jpeg", ".png"]
+
+      # Step 3: Process PDFs with local OCR
+      - type: "local_ocr"
+        engine: "tesseract"
+        config:
+          tesseract_cmd: "{{TESSERACT_CMD|default('tesseract')}}"
+          languages: ["eng", "pol"]
+          dpi: 300
+          oem: 1 # LSTM + Legacy OCR Engine
+          psm: 6 # Assume a single uniform block of text
+          # Local processing flags
+          use_gpu: false
+          max_threads: 4
+          temp_dir: "/tmp/ocr_processing"
+
+    # Error handling
+    error_handlers:
+      - type: "retry"
+        max_attempts: 3
+        delay: 5 # seconds
+
+      - type: "notify"
+        to: "smtp://{{ADMIN_EMAIL}}"
+        template: |
+          Subject: Invoice Processing Failed
+
+          Error processing email: {{error}}
+
+          Details:
+          {{error_details}}
+
+    # Output configuration
+    to:
+      - "file://{{OUTPUT_DIR|default('./output')}}/processed/{{date|date('%Y-%m')}}/{{message_id}}.json"
+      - "smtp://{{REPORT_EMAIL}}?subject=Processed Invoice {{date|date('%Y-%m')}}"
+
+# Global configuration
+config:
+  log_level: "{{LOG_LEVEL|default('INFO')}}"
+  log_file: "{{LOG_FILE|default('email_processor.log')}}"
+
+  # Email polling interval in seconds
+  poll_interval: 300 # 5 minutes
+
+  # Maximum number of emails to process in one batch
+  batch_size: 50
+
+  # Archive processed emails (move to another folder)
+  archive_processed: true
+  archive_folder: "Processed_Invoices"

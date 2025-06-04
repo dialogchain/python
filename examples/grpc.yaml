@@ -68,7 +68,7 @@ routes:
           Latency: {{latency_ms}}ms
           Error Rate: {{error_rate}}%
     
-    to: "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ML_TEAM_EMAIL}}"
+    to: "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ML_TEAM_EMAIL}}"
 
   - name: "distributed_batch_processing"
     from: "file:///data/batch_queue/*.json"

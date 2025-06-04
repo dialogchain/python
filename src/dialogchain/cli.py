@@ -202,7 +202,7 @@ routes:
       - type: "transform"
         template: "Person detected at {{position}} ({{confidence}}%)"
 
-    to: "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}"
+    to: "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}"
 
 env_vars:
   - CAMERA_USER
@@ -255,7 +255,7 @@ routes:
           - {{timestamp}}: {{message}}
           {{/events}}
 
-    to: "email://{{SMTP_SERVER}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{RECIPIENTS}}"
+    to: "smtp://{{SMTP_SERVER}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{RECIPIENTS}}"
 """
 
 
@@ -291,7 +291,7 @@ routes:
 
     # Multiple destinations
     to: 
-      - "email://smtp.gmail.com:587?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}"
+      - "smtp://smtp.gmail.com:587?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}"
       - "http://localhost:8080/webhook"
       - "mqtt://{{MQTT_BROKER}}:1883/alerts/camera"
 

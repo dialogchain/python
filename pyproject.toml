@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dialogchain"
-version = "0.1.14"
+version = "0.1.15"
 description = "DialogChain - A flexible and extensible dialog processing framework"
 authors = ["Tom Sapletta <info@softreck.dev>"]
 readme = "README.md"

@@ -19,7 +19,7 @@ routes:
           • Immediate Response Required: {{business_context.requires_immediate_response}}
     
     to:
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}"
 #      - "http://{{SECURITY_WEBHOOK}}/critical-alert"
 #      - "mqtt://{{MQTT_BROKER}}:1883/security/alerts/{{CAMERA_NAME}}"
       - "log://logs/security_{{CAMERA_NAME}}.log"
@@ -38,7 +38,7 @@ routes:
       - type: "filter"
         condition: "{{status}} != 'healthy'"
     
-    to: "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}"
+    to: "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}"
 
 
 env_vars:

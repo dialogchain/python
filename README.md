@@ -564,18 +564,12 @@ routes:
           confidence_threshold: 0.6
           target_objects: ["person", "car"]
 
-      # Go: Risk analysis
-      - type: "external"
-        command: "go run scripts/image_processor.go"
-        config:
-          threat_threshold: 0.7
-
       # Filter high-risk only
       - type: "filter"
         condition: "{{threat_level}} == 'high'"
 
     to:
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{SECURITY_EMAIL}}"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{SECURITY_EMAIL}}"
       - "http://webhook.company.com/security-alert"
 ```
 
@@ -611,7 +605,7 @@ dialogchain run -c my_config.yaml --dry-run
      2. filter
      3. transform
    To:
-     • email://:?user=&password=&to=
+     • smtp://:?user=&password=&to=
 ```
 
 ## 📖 Detailed Usage
@@ -694,7 +688,7 @@ processors:
 
 | Destination | Example URL                                                                | Description     |
 | ----------- | -------------------------------------------------------------------------- | --------------- |
-| Email       | `email://smtp.gmail.com:587?user={{USER}}&password={{PASS}}&to={{EMAILS}}` | SMTP alerts     |
+| Email       | `smtp://smtp.gmail.com:587?user={{USER}}&password={{PASS}}&to={{EMAILS}}` | SMTP alerts     |
 | HTTP        | `http://api.company.com/webhook`                                           | REST API calls  |
 | MQTT        | `mqtt://broker:1883/alerts/camera`                                         | MQTT publishing |
 | File        | `file:///logs/alerts.log`                                                  | File logging    |
@@ -713,7 +707,6 @@ dialogchain/
 │   └── connectors.py      # Input/output connectors
 ├── scripts/               # External processors
 │   ├── detect_objects.py  # Python: YOLO detection
-│   ├── image_processor.go # Go: Risk analysis
 │   ├── health_check.go    # Go: Health monitoring
 │   └── business_rules.js  # Node.js: Business logic
 ├── examples/              # Configuration examples

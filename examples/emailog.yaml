@@ -12,7 +12,7 @@ routes:
           }
     
     to:
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}&subject=Log Message {{ now().strftime('%H:%M:%S') }}"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}&subject=Log Message {{ now().strftime('%H:%M:%S') }}"
       - "log:info"
 
 # Required environment variables

@@ -3,7 +3,7 @@ routes:
     from: "timer://5s"
     to:
       - "log:info"
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}&subject=Test Email"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}&subject=Test Email"
 
 # Required environment variables
 env_vars:

@@ -17,7 +17,7 @@ routes:
       - type: "transform"
         template: "Person detected at {{position}} ({{confidence}}%)"
 
-    to: "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}"
+    to: "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}"
 
 env_vars:
   - CAMERA_USER

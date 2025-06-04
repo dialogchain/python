@@ -43,7 +43,7 @@ routes:
           Timestamp: {{ now()|datetime }}
     
     to:
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}&subject=📷 Camera Health Alert"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}&subject=📷 Camera Health Alert"
       - "log://logs/security_{{CAMERA_NAME}}.log"
 
 

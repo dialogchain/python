@@ -48,7 +48,7 @@ routes:
           Daily System Report
           Generated: {{timestamp}}
           Status: System operational
-    to: "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ADMIN_EMAIL}}"
+    to: "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ADMIN_EMAIL}}"
 
 env_vars:
   - SMTP_SERVER
@@ -166,7 +166,7 @@ routes:
         condition: "{{risk_score}} > 0.7"
 
     to:
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{SECURITY_TEAM}}"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{SECURITY_TEAM}}"
       - "http://{{SECURITY_API}}/alerts/critical"
 
   # Parking lot camera - medium security
@@ -317,7 +317,7 @@ routes:
           {{/recommendations}}
 
     to:
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{FACILITY_MANAGER}}"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{FACILITY_MANAGER}}"
       - "http://{{BUILDING_MANAGEMENT_API}}/environmental/alerts"
 
 env_vars:
@@ -369,7 +369,7 @@ routes:
 
     to:
       - "http://{{MAINTENANCE_API}}/work-orders"
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{MAINTENANCE_TEAM}}"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{MAINTENANCE_TEAM}}"
 
 env_vars:
   - MQTT_BROKER
@@ -492,7 +492,7 @@ routes:
           monitoring: true
 
     to:
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ML_TEAM}}"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ML_TEAM}}"
       - "http://{{MODEL_REGISTRY}}/models/register"
 
 env_vars:
@@ -553,7 +553,7 @@ routes:
           tracking_enabled: true
 
     to:
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{customer_email}}"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{customer_email}}"
       - "http://{{CRM_API}}/orders/update"
       - "mqtt://{{MQTT_BROKER}}:1883/orders/fulfilled"
 
@@ -612,7 +612,7 @@ routes:
 
     to:
       - "http://{{WORKFLOW_API}}/documents/route"
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{approver_email}}"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{approver_email}}"
 
 env_vars:
   - EXTRACTION_RULES
@@ -954,7 +954,7 @@ routes:
 
     to:
       - "file:///reports/analytics_{{timestamp}}.html"
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ANALYTICS_TEAM}}"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ANALYTICS_TEAM}}"
 
 env_vars:
   - MQTT_BROKER
@@ -1162,7 +1162,7 @@ routes:
         condition: "{{test_status}} == 'failed' or {{coverage}} < 80"
 
     to:
-      - "email://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{DEV_TEAM}}"
+      - "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{DEV_TEAM}}"
       - "http://{{TEST_REPORTING_API}}/results"
 
 env_vars:
