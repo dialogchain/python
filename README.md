@@ -85,6 +85,79 @@ curl -X POST http://localhost:8000/process -H "Content-Type: application/json" -
 
 For detailed documentation, please visit our [documentation site](https://dialogchain.github.io/python/).
 
+## 📝 Logging
+
+DialogChain includes a robust logging system with the following features:
+
+### Features
+
+- **Multiple Handlers**: Console and file logging out of the box
+- **Structured Logs**: JSON-formatted logs for easy parsing
+- **SQLite Storage**: Logs are stored in a searchable database
+- **Log Rotation**: Automatic log rotation to prevent disk space issues
+- **Thread-Safe**: Safe for use in multi-threaded applications
+
+### Basic Usage
+
+```python
+from dialogchain.utils.logger import setup_logger, get_logs
+
+# Get a logger instance
+logger = setup_logger(__name__, log_level='DEBUG')
+
+# Log messages with different levels
+logger.debug('Debug message')
+logger.info('Information message')
+logger.warning('Warning message')
+logger.error('Error message', extra={'error_code': 500})
+
+# Get recent logs from database
+recent_logs = get_logs(limit=10)
+```
+
+### Logging Commands
+
+DialogChain provides several make commands for log management:
+
+```bash
+# View recent logs (default: 50 lines)
+make logs
+
+# View specific number of log lines
+make logs LINES=100
+
+# Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+make log-level LEVEL=DEBUG
+
+# View database logs
+make log-db LIMIT=50
+
+# Follow log file in real-time
+make log-tail
+
+# Clear log files
+make log-clear
+```
+
+### Configuration
+
+Logging can be configured via environment variables:
+
+```bash
+# Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+LOG_LEVEL=DEBUG
+
+# Log file path
+LOG_FILE=logs/dialogchain.log
+
+# Database log file path
+DB_LOG_FILE=logs/dialogchain.db
+```
+
+### Log Rotation
+
+Log files are automatically rotated when they reach 10MB, keeping up to 5 backup files.
+
 ## 📦 Project Structure
 
 ```

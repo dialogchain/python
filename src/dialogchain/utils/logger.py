@@ -27,34 +27,52 @@ from logging.handlers import RotatingFileHandler
 
 # Default configuration
 DEFAULT_LOG_LEVEL = logging.INFO
-DEFAULT_DB_PATH = 'logs/dialogchain.db'
-DEFAULT_LOG_FILE = 'logs/dialogchain.log'
+DEFAULT_LOG_DIR = 'logs'
+DEFAULT_DB_PATH = f'{DEFAULT_LOG_DIR}/dialogchain.db'
+DEFAULT_LOG_FILE = f'{DEFAULT_LOG_DIR}/dialogchain.log'
 MAX_LOG_SIZE = 10 * 1024 * 1024  # 10MB
 BACKUP_COUNT = 5
 
 # Thread lock for SQLite operations
 db_lock = threading.Lock()
 
+def _ensure_log_dir():
+    """Ensure log directory exists."""
+    try:
+        # Skip if already exists
+        if os.path.exists(DEFAULT_LOG_DIR):
+            # If it's a file, remove it
+            if not os.path.isdir(DEFAULT_LOG_DIR):
+                os.remove(DEFAULT_LOG_DIR)
+                os.makedirs(DEFAULT_LOG_DIR, exist_ok=True)
+            return True
+            
+        # Create directory if it doesn't exist
+        os.makedirs(DEFAULT_LOG_DIR, exist_ok=True)
+        return True
+    except Exception as e:
+        print(f"Warning: Could not create log directory: {e}", file=sys.stderr)
+        return False
+
 # Create a module-level logger that doesn't trigger setup
 _logger = logging.getLogger(__name__)
 _logger.setLevel(DEFAULT_LOG_LEVEL)
 
-# Prevent duplicate handlers
+# Ensure log directory exists
+_log_dir_ready = _ensure_log_dir()
+
+# Add console handler by default
 if not _logger.handlers:
-    # Create logs directory if it doesn't exist
-    os.makedirs(os.path.dirname(DEFAULT_DB_PATH) or '.', exist_ok=True)
-    os.makedirs(os.path.dirname(DEFAULT_LOG_FILE) or '.', exist_ok=True)
-    
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler = logging.StreamHandler(sys.stderr)
     console_formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     console_handler.setFormatter(console_formatter)
     _logger.addHandler(console_handler)
-    
-    # File handler with rotation
+
+# Add file handler if directory is ready
+if _log_dir_ready and not any(isinstance(h, logging.FileHandler) for h in _logger.handlers):
     try:
         file_handler = RotatingFileHandler(
             DEFAULT_LOG_FILE,
@@ -64,11 +82,11 @@ if not _logger.handlers:
         )
         file_formatter = logging.Formatter(
             '{"timestamp": "%(asctime)s", "level": "%(levelname)s", '
-            '"module": "%(name)s", "message": "%(message)s", "data": %(extra)s}',
-            datefmt='%Y-%m-%dT%H:%M:%S%z'
+            '"module": "%(name)s", "message": "%(message)s"}'
         )
         file_handler.setFormatter(file_formatter)
         _logger.addHandler(file_handler)
+        _logger.info(f"File logging initialized at: {os.path.abspath(DEFAULT_LOG_FILE)}")
     except Exception as e:
         _logger.error(f"Failed to initialize file handler: {e}", exc_info=True)
 

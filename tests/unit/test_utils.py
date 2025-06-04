@@ -7,9 +7,8 @@ import pytest
 
 from dialogchain import utils
 
-# Re-export the event_loop fixture from conftest
-pytest_plugins = ['tests.conftest']
 
+# Re-export the event_loop fixture from conftest
 
 
 def test_import_string():
