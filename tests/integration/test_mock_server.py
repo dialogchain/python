@@ -11,7 +11,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 # Import our test HTTPSource
 from .test_https import HTTPSource
-from dialogchain.engine import CamelRouterEngine
+from dialogchain.engine import DialogChainEngine
 
 # Get the directory of the current file
 TEST_DIR = Path(__file__).parent
@@ -156,7 +156,7 @@ class MockSource:
         return self
 
 
-class TestCamelRouterEngine(CamelRouterEngine):
+class TestDialogChainEngine(DialogChainEngine):
     """Test engine that uses our mock source"""
 
     def create_source(self, uri: str):
@@ -184,7 +184,7 @@ async def test_dialogchain_with_mock_server(mock_server, config):
     }
 
     # Initialize our test engine with the config
-    engine = TestCamelRouterEngine(test_config, verbose=True)
+    engine = TestDialogChainEngine(test_config, verbose=True)
 
     # Create a mock destination to capture the output
     class MockDestination:

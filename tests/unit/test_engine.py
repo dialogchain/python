@@ -1,8 +1,8 @@
-"""Unit tests for the CamelRouterEngine class."""
+"""Unit tests for the DialogChainEngine class."""
 import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
-from dialogchain.engine import CamelRouterEngine, parse_uri
+from dialogchain.engine import DialogChainEngine, parse_uri
 from dialogchain.connectors import Source, Destination, RTSPSource, HTTPDestination
 from dialogchain.config import RouteConfig, ValidationError
 
@@ -42,8 +42,8 @@ class MockDestination(Destination):
         self.sent_messages.append(message)
 
 
-class TestCamelRouterEngine:
-    """Test the CamelRouterEngine class."""
+class TestDialogChainEngine:
+    """Test the DialogChainEngine class."""
     
     @pytest.fixture
     def sample_config(self):
@@ -87,7 +87,7 @@ class TestCamelRouterEngine:
     @pytest.mark.asyncio
     async def test_engine_initialization(self, sample_config):
         """Test engine initialization with valid config."""
-        engine = CamelRouterEngine(sample_config)
+        engine = DialogChainEngine(sample_config)
         assert engine.config == sample_config
         assert len(engine.routes) == 1
         assert engine.routes[0]["name"] == "test_route"
@@ -115,7 +115,7 @@ class TestCamelRouterEngine:
         with patch('dialogchain.connectors.RTSPSource', return_value=mock_source), \
              patch('dialogchain.connectors.HTTPDestination', return_value=mock_destination):
             
-            engine = CamelRouterEngine(sample_config)
+            engine = DialogChainEngine(sample_config)
             await engine.start()
             
             # Verify source and destination are connected
@@ -137,7 +137,7 @@ class TestCamelRouterEngine:
         with patch('dialogchain.connectors.RTSPSource', return_value=mock_source), \
              patch('dialogchain.connectors.HTTPDestination', return_value=mock_destination):
             
-            engine = CamelRouterEngine(sample_config)
+            engine = DialogChainEngine(sample_config)
             await engine.start()
             
             # Process messages for a short duration
@@ -157,7 +157,7 @@ class TestCamelRouterEngine:
         invalid_config = {"routes": [{"name": "invalid"}]}  # Missing required fields
         
         with pytest.raises(ValidationError):
-            CamelRouterEngine(invalid_config)
+            DialogChainEngine(invalid_config)
     
     @pytest.mark.asyncio
     async def test_engine_context_manager(self, sample_config, mock_source, mock_destination):
@@ -165,7 +165,7 @@ class TestCamelRouterEngine:
         with patch('dialogchain.connectors.RTSPSource', return_value=mock_source), \
              patch('dialogchain.connectors.HTTPDestination', return_value=mock_destination):
             
-            async with CamelRouterEngine(sample_config) as engine:
+            async with DialogChainEngine(sample_config) as engine:
                 # Verify engine is running
                 assert engine.is_running is True
                 assert mock_source.is_connected is True

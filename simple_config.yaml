@@ -1,0 +1,17 @@
+# Simple HTTP Echo Server Configuration
+routes:
+  - name: "http_echo_server"
+    from: "http://0.0.0.0:8080/echo"
+    
+    processors:
+      - type: "transform"
+        template: |
+          {
+            "status": "success",
+            "message": "Received your request",
+            "your_data": {{body | tojson}}
+          }
+    
+    to: "log:info"
+
+# No environment variables needed for this simple example

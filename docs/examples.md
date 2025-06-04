@@ -31,7 +31,7 @@ routes:
 **Usage:**
 
 ```bash
-camel-router run -c hello_world.yaml
+dialogchain run -c hello_world.yaml
 ```
 
 ### Example 2: Email Notifications

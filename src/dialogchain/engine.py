@@ -44,7 +44,7 @@ def parse_uri(uri: str) -> Tuple[str, str]:
         raise ValueError(f"Invalid URI format: {uri}")
 
 
-class CamelRouterEngine:
+class DialogChainEngine:
     def __init__(self, config: Dict[str, Any], verbose: bool = False):
         self.config = config
         self.verbose = verbose

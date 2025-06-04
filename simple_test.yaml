@@ -1,0 +1,10 @@
+# Simple Test Configuration
+routes:
+  - name: "hello_test"
+    from: "timer:5s"  # Run every 5 seconds
+    
+    processors:
+      - type: "transform"
+        template: "Hello from DialogChain! Current time: {{now().isoformat() if 'now' in globals() else 'time_not_available'}}"
+    
+    to: "log:info"

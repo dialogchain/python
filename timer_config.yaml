@@ -1,0 +1,10 @@
+# Timer-based example that prints a message every 5 seconds
+routes:
+  - name: "hello_world_timer"
+    from: "timer:foo?period=5000"  # 5000ms = 5 seconds
+    
+    processors:
+      - type: "transform"
+        template: "Hello, world! The time is {{now().isoformat()}}"
+    
+    to: "log:info"

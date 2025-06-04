@@ -1,0 +1,10 @@
+# Timer-based example
+routes:
+  - name: "hello_world_timer"
+    from: "timer:5s"  # Run every 5 seconds
+    
+    processors:
+      - type: "transform"
+        template: "Hello, world! This is a test message."
+    
+    to: "log:info"

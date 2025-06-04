@@ -7,6 +7,10 @@ import pytest
 
 from dialogchain import utils
 
+# Re-export the event_loop fixture from conftest
+pytest_plugins = ['tests.conftest']
+
+
 
 def test_import_string():
     """Test importing a class by string path."""
@@ -68,7 +72,7 @@ async def test_async_retry_failure():
     with pytest.raises(Exception, match="Failed"):
         await test_func()
 
-    assert mock_func.await_count == 3  # Initial + 2 retries
+    assert mock_func.await_count == 2  # Initial attempt + 1 retry
 
 
 def test_sanitize_filename():

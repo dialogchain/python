@@ -1,0 +1,50 @@
+# Advanced Example with Multiple Routes
+routes:
+  # Route 1: Simple timer with transform
+  - name: "greeting_route"
+    from: "timer:10s"  # Run every 10 seconds
+    
+    processors:
+      - type: "transform"
+        template: "Greeting from DialogChain at {{now().isoformat() if 'now' in globals() else 'current_time'}}!"
+    
+    to: "log:info"
+
+  # Route 2: Message transformation
+  - name: "transform_route"
+    from: "timer:15s"  # Run every 15 seconds
+    
+    processors:
+      - type: "transform"
+        template: |
+          {
+            "message": "This is a test message",
+            "status": "success",
+            "count": 1
+          }
+      
+      - type: "transform"
+        template: "Processed message: {{message}} (Status: {{status}}, Count: {{count}})"
+    
+    to: "log:info"
+
+  # Route 3: Conditional logging
+  - name: "conditional_route"
+    from: "timer:20s"  # Run every 20 seconds
+    
+    processors:
+      - type: "transform"
+        template: "test_status=failed coverage=75"
+      
+      # This filter will only pass through if condition is true
+      - type: "filter"
+        condition: "{{test_status}} == 'failed' or {{coverage}} < 80"
+      
+      - type: "transform"
+        template: "ALERT: Test {{test_status}} with {{coverage}}% coverage (below threshold)"
+    
+    to: "log:warn"
+
+# Environment variables (commented out as they're not needed for this example)
+# env_vars:
+#   - VARIABLE_NAME

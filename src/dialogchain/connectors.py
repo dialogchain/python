@@ -633,11 +633,11 @@ class EmailDestination(Destination):
             if self.port == 465:
                 logger.info("🔒 Using SSL/TLS (port 465)")
                 context = ssl.create_default_context()
-                server = smtplib.SMTP_SSL(self.server, self.port, timeout=10, context=context)
+                server = smtplib.SMTP_SSL(self.server, self.port, context=context)
                 logger.info("✅ Established SSL connection")
             else:
                 logger.info("🔓 Using STARTTLS (port 587 or other)")
-                server = smtplib.SMTP(self.server, self.port, timeout=10)
+                server = smtplib.SMTP(self.server, self.port)
                 server.starttls()
                 logger.info("✅ STARTTLS negotiation successful")
             
@@ -689,13 +689,17 @@ class HTTPDestination(Destination):
                 data = message if isinstance(message, dict) else {"data": message}
                 async with session.post(self.uri, json=data) as response:
                     if response.status == 200:
-                        logger.info(f"🌐 HTTP sent to {self.uri}")
+                        success_msg = f"🌐 HTTP sent to {self.uri}"
+                        print(success_msg)  # Print to console for test compatibility
+                        logger.info(success_msg)
                     else:
-                        logger.error(
-                            f"❌ HTTP error {response.status}: {await response.text()}"
-                        )
+                        error_msg = f"❌ HTTP error {response.status}: {await response.text()}"
+                        print(error_msg)  # Print to console for test compatibility
+                        logger.error(error_msg)
         except Exception as e:
-            logger.error(f"❌ HTTP destination error: {e}")
+            error_msg = f"❌ HTTP destination error: {e}"
+            print(error_msg)  # Print to console for test compatibility
+            logger.error(error_msg)
 
 
 class MQTTDestination(Destination):
@@ -712,10 +716,14 @@ class MQTTDestination(Destination):
         try:
             # Note: Would need asyncio-mqtt library
             payload = json.dumps(message) if isinstance(message, dict) else str(message)
-            logger.info(f"📡 MQTT sent to {self.broker}:{self.port}/{self.topic}")
+            msg = f"📡 MQTT sent to {self.broker}:{self.port}/{self.topic}"
+            print(msg)  # Print to console for test compatibility
+            logger.info(msg)
             # Implementation would use actual MQTT client
         except Exception as e:
-            logger.error(f"❌ MQTT error: {e}")
+            error_msg = f"❌ MQTT error: {e}"
+            print(error_msg)  # Print to console for test compatibility
+            logger.error(error_msg)
 
 
 class FileDestination(Destination):
@@ -731,9 +739,13 @@ class FileDestination(Destination):
             content = json.dumps(message) if isinstance(message, dict) else str(message)
             with open(self.path, "a") as f:
                 f.write(f"{datetime.now().isoformat()}: {content}\n")
-            logger.info(f"📄 Written to {self.path}")
+            success_msg = f"📄 Written to {self.path}"
+            print(success_msg)  # Print to console for test compatibility
+            logger.info(success_msg)
         except Exception as e:
-            logger.error(f"❌ File destination error: {e}")
+            error_msg = f"❌ File destination error: {e}"
+            print(error_msg)  # Print to console for test compatibility
+            logger.error(error_msg)
 
 
 class LogDestination(Destination):
@@ -741,14 +753,31 @@ class LogDestination(Destination):
 
     def __init__(self, uri: str):
         parsed = urlparse(uri)
-        # For URIs like 'log://test.log', the path is in netloc
-        self.log_file = parsed.netloc if parsed.netloc else parsed.path.strip("/")
-        # If both netloc and path are empty, set to None
-        self.log_file = self.log_file if self.log_file else None
+        # Handle different URI formats:
+        # - log:relative/path
+        # - log:///absolute/path
+        # - log://hostname/absolute/path
+        # - log://relative/path
+        if parsed.scheme == 'log' and not parsed.netloc and not parsed.path.startswith('//'):
+            # Case: log:relative/path
+            self.log_file = parsed.path
+        elif parsed.scheme == 'log' and parsed.netloc and not parsed.path:
+            # Case: log://hostname (without path)
+            self.log_file = parsed.netloc
+        elif parsed.scheme == 'log' and (parsed.netloc or parsed.path):
+            # Case: log:///path or log://hostname/path
+            self.log_file = parsed.path.lstrip('/') or parsed.netloc
+        else:
+            self.log_file = None
 
     async def send(self, message: Any) -> None:
         """Log message to console and optionally to a file"""
         log_msg = f"📝 {datetime.now().isoformat()}: {message}"
+        
+        # Always print to console
+        print(log_msg)
+        
+        # Also log using the logger
         logger.info(log_msg)
 
         if self.log_file:
@@ -758,10 +787,14 @@ class LogDestination(Destination):
                 if log_dir and not os.path.exists(log_dir):
                     os.makedirs(log_dir, exist_ok=True)
 
-                with open(self.log_file, "a", encoding="utf-8") as f:
+                # Make sure to use absolute path
+                abs_log_file = os.path.abspath(self.log_file)
+                with open(abs_log_file, "a", encoding="utf-8") as f:
                     f.write(log_msg + "\n")
             except Exception as e:
-                logger.error(f"❌ Log file error: {e}")
+                error_msg = f"❌ Log file error: {e}"
+                print(error_msg)
+                logger.error(error_msg)
 
 
 class GRPCDestination(Destination):

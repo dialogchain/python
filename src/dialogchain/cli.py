@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List, Optional
 from dotenv import load_dotenv
 
-from .engine import CamelRouterEngine
+from .engine import DialogChainEngine
 from .scanner import NetworkScanner, NetworkService
 
 
@@ -46,7 +46,7 @@ def run(config, env_file, route, dry_run, verbose):
         click.echo(f"✓ Loaded configuration from {config}")
 
     # Create engine
-    engine = CamelRouterEngine(config_data, verbose=verbose)
+    engine = DialogChainEngine(config_data, verbose=verbose)
 
     if dry_run:
         engine.dry_run(route)
@@ -168,7 +168,7 @@ def validate(config):
         with open(config, "r") as f:
             config_data = yaml.safe_load(f)
 
-        engine = CamelRouterEngine(config_data)
+        engine = DialogChainEngine(config_data)
         errors = engine.validate_config()
 
         if not errors:

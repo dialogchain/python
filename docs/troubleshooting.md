@@ -27,13 +27,13 @@ This guide helps you diagnose and resolve common issues with Camel Router, from 
 
 ```bash
 # Check route validation
-camel-router validate -c config.yaml
+dialogchain validate -c config.yaml
 
 # Run in dry-run mode
-camel-router run -c config.yaml --dry-run
+dialogchain run -c config.yaml --dry-run
 
 # Enable verbose logging
-camel-router run -c config.yaml --verbose
+dialogchain run -c config.yaml --verbose
 ```
 
 **Common Causes & Solutions:**
@@ -66,7 +66,7 @@ camel-router run -c config.yaml --verbose
    netstat -tulpn | grep :8080
 
    # Use different port
-   camel-router run -c config.yaml --port 8081
+   dialogchain run -c config.yaml --port 8081
    ```
 
 ### Issue: Messages Not Being Processed
@@ -160,7 +160,7 @@ Error: Environment variable CAMERA_USER not set
 
 ```bash
 # Check required variables
-camel-router validate -c config.yaml
+dialogchain validate -c config.yaml
 
 # List environment variables
 env | grep CAMERA
@@ -177,7 +177,7 @@ export CAMERA_USER=admin
 export CAMERA_PASS=password
 
 # Use different .env file
-camel-router run -c config.yaml -e production.env
+dialogchain run -c config.yaml -e production.env
 
 # Set default values in configuration
 # Use Jinja2 default filter
@@ -373,11 +373,11 @@ openssl s_client -connect smtp.gmail.com:587 -starttls smtp
 
 ```bash
 # Monitor memory usage
-top -p $(pgrep camel-router)
-docker stats camel-router
+top -p $(pgrep dialogchain)
+docker stats dialogchain
 
 # Check memory limits
-kubectl describe pod camel-router-pod
+kubectl describe pod dialogchain-pod
 
 # Profile Python memory usage
 python -m memory_profiler scripts/detect_objects.py
@@ -437,7 +437,7 @@ python -m memory_profiler scripts/detect_objects.py
 
 ```bash
 # Monitor CPU usage
-top -p $(pgrep camel-router)
+top -p $(pgrep dialogchain)
 htop
 
 # Profile Python CPU usage

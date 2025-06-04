@@ -2,7 +2,7 @@
 
 ## Core Classes
 
-### CamelRouterEngine
+### DialogChainEngine
 
 Main routing engine that orchestrates the processing pipeline.
 

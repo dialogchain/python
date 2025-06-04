@@ -27,14 +27,14 @@ This guide covers various deployment options for Camel Router, from local develo
 
 ```bash
 # Clone repository
-git clone https://github.com/taskinity/camel-router
-cd camel-router
+git clone https://github.com/taskinity/dialogchain
+cd dialogchain
 
 # Install and setup
 make quickstart
 
 # Run with sample configuration
-camel-router run -c examples/simple_routes.yaml
+dialogchain run -c examples/simple_routes.yaml
 ```
 
 ### Development Environment
@@ -50,7 +50,7 @@ make test
 make build-all
 
 # Start with hot reload (if using file watcher)
-camel-router run -c config.yaml --verbose
+dialogchain run -c config.yaml --verbose
 ```
 
 ## Docker Deployment
@@ -59,13 +59,13 @@ camel-router run -c config.yaml --verbose
 
 ```bash
 # Build production image
-docker build -t camel-router:latest .
+docker build -t dialogchain:latest .
 
 # Build development image
-docker build --target dev -t camel-router:dev .
+docker build --target dev -t dialogchain:dev .
 
 # Multi-platform build
-docker buildx build --platform linux/amd64,linux/arm64 -t camel-router:latest .
+docker buildx build --platform linux/amd64,linux/arm64 -t dialogchain:latest .
 ```
 
 ### Running with Docker
@@ -73,40 +73,40 @@ docker buildx build --platform linux/amd64,linux/arm64 -t camel-router:latest .
 ```bash
 # Basic run
 docker run -d \
-  --name camel-router \
+  --name dialogchain \
   -p 8080:8080 \
   -v $(pwd)/examples:/app/examples \
   -v $(pwd)/.env:/app/.env \
-  camel-router:latest
+  dialogchain:latest
 
 # With custom configuration
 docker run -d \
-  --name camel-router \
+  --name dialogchain \
   -p 8080:8080 \
   -v $(pwd)/my-config.yaml:/app/config.yaml \
   -v $(pwd)/.env:/app/.env \
-  camel-router:latest \
-  camel-router run -c config.yaml
+  dialogchain:latest \
+  dialogchain run -c config.yaml
 
 # Development mode with volumes
 docker run -it --rm \
   -p 8080:8080 \
   -v $(pwd):/app \
   -w /app \
-  camel-router:dev \
+  dialogchain:dev \
   bash
 ```
 
 ### Docker Image Variants
 
-#### Production Image (`camel-router:latest`)
+#### Production Image (`dialogchain:latest`)
 
 - Optimized for size and security
 - Multi-stage build
 - Non-root user
 - Minimal dependencies
 
-#### Development Image (`camel-router:dev`)
+#### Development Image (`dialogchain:dev`)
 
 - Includes development tools
 - Debugging utilities
@@ -120,8 +120,8 @@ docker run -it --rm \
 version: "3.8"
 
 services:
-  camel-router:
-    image: camel-router:latest
+  dialogchain:
+    image: dialogchain:latest
     ports:
       - "8080:8080"
     environment:
@@ -151,8 +151,8 @@ services:
 version: "3.8"
 
 services:
-  camel-router:
-    image: camel-router:latest
+  dialogchain:
+    image: dialogchain:latest
     ports:
       - "8080:8080"
     environment:
@@ -179,7 +179,7 @@ services:
   postgres:
     image: postgres:15
     environment:
-      POSTGRES_DB: camelrouter
+      POSTGRES_DB: DialogChain
       POSTGRES_USER: user
       POSTGRES_PASSWORD: pass
     volumes:
@@ -214,10 +214,10 @@ volumes:
 docker-compose up -d
 
 # View logs
-docker-compose logs -f camel-router
+docker-compose logs -f dialogchain
 
 # Scale services
-docker-compose up -d --scale camel-router=3
+docker-compose up -d --scale dialogchain=3
 
 # Stop services
 docker-compose down
@@ -241,38 +241,38 @@ docker-compose down -v
 kubectl apply -f k8s/
 
 # Check deployment
-kubectl get pods -n camel-router
+kubectl get pods -n dialogchain
 
 # View logs
-kubectl logs -f deployment/camel-router -n camel-router
+kubectl logs -f deployment/dialogchain -n dialogchain
 
 # Port forward for testing
-kubectl port-forward service/camel-router-service 8080:8080 -n camel-router
+kubectl port-forward service/dialogchain-service 8080:8080 -n dialogchain
 ```
 
 ### Namespace Setup
 
 ```bash
 # Create namespace
-kubectl create namespace camel-router
+kubectl create namespace dialogchain
 
 # Set default namespace
-kubectl config set-context --current --namespace=camel-router
+kubectl config set-context --current --namespace=dialogchain
 ```
 
 ### Configuration Management
 
 ```bash
 # Create ConfigMap from files
-kubectl create configmap camel-router-config \
+kubectl create configmap dialogchain-config \
   --from-file=routes.yaml=examples/simple_routes.yaml \
-  -n camel-router
+  -n dialogchain
 
 # Create Secret for sensitive data
-kubectl create secret generic camel-router-secrets \
+kubectl create secret generic dialogchain-secrets \
   --from-literal=CAMERA_PASS=your_password \
   --from-literal=SMTP_PASS=your_smtp_password \
-  -n camel-router
+  -n dialogchain
 ```
 
 ### Persistent Storage
@@ -281,7 +281,7 @@ kubectl create secret generic camel-router-secrets \
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: camel-router-storage
+  name: dialogchain-storage
 spec:
   accessModes:
     - ReadWriteMany
@@ -297,24 +297,24 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: camel-router-ingress
+  name: dialogchain-ingress
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   tls:
     - hosts:
-        - camel-router.yourdomain.com
-      secretName: camel-router-tls
+        - dialogchain.yourdomain.com
+      secretName: dialogchain-tls
   rules:
-    - host: camel-router.yourdomain.com
+    - host: dialogchain.yourdomain.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: camel-router-service
+                name: dialogchain-service
                 port:
                   number: 8080
 ```
@@ -325,12 +325,12 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: camel-router-hpa
+  name: dialogchain-hpa
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: camel-router
+    name: dialogchain
   minReplicas: 2
   maxReplicas: 10
   metrics:
@@ -354,10 +354,10 @@ spec:
 
 ```bash
 # Create EKS cluster
-eksctl create cluster --name camel-router --region us-west-2
+eksctl create cluster --name dialogchain --region us-west-2
 
 # Configure kubectl
-aws eks update-kubeconfig --region us-west-2 --name camel-router
+aws eks update-kubeconfig --region us-west-2 --name dialogchain
 
 # Deploy
 kubectl apply -f k8s/
@@ -367,13 +367,13 @@ kubectl apply -f k8s/
 
 ```bash
 # Create GKE cluster
-gcloud container clusters create camel-router \
+gcloud container clusters create dialogchain \
   --zone us-central1-a \
   --machine-type n1-standard-2 \
   --num-nodes 3
 
 # Get credentials
-gcloud container clusters get-credentials camel-router --zone us-central1-a
+gcloud container clusters get-credentials dialogchain --zone us-central1-a
 
 # Deploy
 kubectl apply -f k8s/
@@ -383,18 +383,18 @@ kubectl apply -f k8s/
 
 ```bash
 # Create resource group
-az group create --name camel-router-rg --location eastus
+az group create --name dialogchain-rg --location eastus
 
 # Create AKS cluster
 az aks create \
-  --resource-group camel-router-rg \
-  --name camel-router \
+  --resource-group dialogchain-rg \
+  --name dialogchain \
   --node-count 3 \
   --enable-addons monitoring \
   --generate-ssh-keys
 
 # Get credentials
-az aks get-credentials --resource-group camel-router-rg --name camel-router
+az aks get-credentials --resource-group dialogchain-rg --name dialogchain
 
 # Deploy
 kubectl apply -f k8s/
@@ -406,7 +406,7 @@ kubectl apply -f k8s/
 
 ```yaml
 # serverless.yml
-service: camel-router-lambda
+service: dialogchain-lambda
 
 provider:
   name: aws
@@ -430,7 +430,7 @@ plugins:
 
 ```bash
 # Deploy function
-gcloud functions deploy camel-router-processor \
+gcloud functions deploy dialogchain-processor \
   --runtime python39 \
   --trigger-http \
   --entry-point process_route \
@@ -446,11 +446,11 @@ gcloud functions deploy camel-router-processor \
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: camel-router-metrics
+  name: dialogchain-metrics
 spec:
   selector:
     matchLabels:
-      app: camel-router
+      app: dialogchain
   endpoints:
     - port: metrics
       interval: 30s
@@ -464,11 +464,11 @@ spec:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: fluentd-camel-router
+  name: fluentd-dialogchain
 spec:
   selector:
     matchLabels:
-      name: fluentd-camel-router
+      name: fluentd-dialogchain
   template:
     spec:
       containers:
@@ -505,13 +505,13 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: camel-router-alerts
+  name: dialogchain-alerts
 spec:
   groups:
-    - name: camel-router
+    - name: dialogchain
       rules:
-        - alert: CamelRouterDown
-          expr: up{job="camel-router"} == 0
+        - alert: DialogChainDown
+          expr: up{job="dialogchain"} == 0
           for: 1m
           labels:
             severity: critical
@@ -538,11 +538,11 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: camel-router-network-policy
+  name: dialogchain-network-policy
 spec:
   podSelector:
     matchLabels:
-      app: camel-router
+      app: dialogchain
   policyTypes:
     - Ingress
     - Egress
@@ -580,7 +580,7 @@ securityContext:
 
 ```bash
 # Using Kubernetes secrets
-kubectl create secret generic camel-router-secrets \
+kubectl create secret generic dialogchain-secrets \
   --from-literal=database-password=super-secret \
   --from-literal=api-key=abc123
 
@@ -596,7 +596,7 @@ helm install external-secrets external-secrets/external-secrets -n external-secr
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: camel-router-role
+  name: dialogchain-role
 rules:
   - apiGroups: [""]
     resources: ["configmaps", "secrets"]
@@ -609,13 +609,13 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: camel-router-binding
+  name: dialogchain-binding
 subjects:
   - kind: ServiceAccount
-    name: camel-router-sa
+    name: dialogchain-sa
 roleRef:
   kind: Role
-  name: camel-router-role
+  name: dialogchain-role
   apiGroup: rbac.authorization.k8s.io
 ```
 
@@ -641,12 +641,12 @@ resources:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: camel-router-hpa
+  name: dialogchain-hpa
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: camel-router
+    name: dialogchain
   minReplicas: 2
   maxReplicas: 20
   metrics:
@@ -716,7 +716,7 @@ affinity:
               - key: app
                 operator: In
                 values:
-                  - camel-router
+                  - dialogchain
           topologyKey: kubernetes.io/hostname
 ```
 
@@ -747,39 +747,39 @@ cache:
 
 ```bash
 # Check pod logs
-kubectl logs pod-name -n camel-router
+kubectl logs pod-name -n dialogchain
 
 # Describe pod for events
-kubectl describe pod pod-name -n camel-router
+kubectl describe pod pod-name -n dialogchain
 
 # Check resource constraints
-kubectl top pod pod-name -n camel-router
+kubectl top pod pod-name -n dialogchain
 ```
 
 #### Configuration Issues
 
 ```bash
 # Validate configuration
-kubectl exec -it pod-name -n camel-router -- camel-router validate -c /app/config/routes.yaml
+kubectl exec -it pod-name -n dialogchain -- dialogchain validate -c /app/config/routes.yaml
 
 # Check ConfigMap
-kubectl get configmap camel-router-config -o yaml -n camel-router
+kubectl get configmap dialogchain-config -o yaml -n dialogchain
 
 # Test connectivity
-kubectl exec -it pod-name -n camel-router -- curl http://external-service:8080/health
+kubectl exec -it pod-name -n dialogchain -- curl http://external-service:8080/health
 ```
 
 #### Performance Issues
 
 ```bash
 # Check resource usage
-kubectl top pods -n camel-router
+kubectl top pods -n dialogchain
 
 # Check HPA status
-kubectl get hpa -n camel-router
+kubectl get hpa -n dialogchain
 
 # Monitor metrics
-kubectl port-forward service/camel-router-service 9090:9090 -n camel-router
+kubectl port-forward service/dialogchain-service 9090:9090 -n dialogchain
 ```
 
 ### Debug Mode
@@ -838,11 +838,11 @@ startupProbe:
 
 ```bash
 # Backup ConfigMaps and Secrets
-kubectl get configmap camel-router-config -o yaml > backup/configmap.yaml
-kubectl get secret camel-router-secrets -o yaml > backup/secrets.yaml
+kubectl get configmap dialogchain-config -o yaml > backup/configmap.yaml
+kubectl get secret dialogchain-secrets -o yaml > backup/secrets.yaml
 
 # Backup entire namespace
-kubectl get all,configmap,secret -n camel-router -o yaml > backup/namespace-backup.yaml
+kubectl get all,configmap,secret -n dialogchain -o yaml > backup/namespace-backup.yaml
 ```
 
 ### Data Backup
@@ -866,7 +866,7 @@ kubectl apply -f backup/configmap.yaml
 kubectl apply -f backup/secrets.yaml
 
 # Scale deployment
-kubectl scale deployment camel-router --replicas=3 -n camel-router
+kubectl scale deployment dialogchain --replicas=3 -n dialogchain
 ```
 
 ## CI/CD Integration
@@ -878,17 +878,17 @@ kubectl scale deployment camel-router --replicas=3 -n camel-router
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: camel-router
+  name: dialogchain
   namespace: argocd
 spec:
   project: default
   source:
-    repoURL: https://github.com/taskinity/camel-router
+    repoURL: https://github.com/taskinity/dialogchain
     targetRevision: main
     path: k8s
   destination:
     server: https://kubernetes.default.svc
-    namespace: camel-router
+    namespace: dialogchain
   syncPolicy:
     automated:
       prune: true
@@ -899,19 +899,19 @@ spec:
 
 ```bash
 # Install with Helm
-helm repo add camel-router https://charts.camel-router.org
-helm install camel-router camel-router/camel-router \
-  --namespace camel-router \
+helm repo add dialogchain https://charts.dialogchain.org
+helm install dialogchain dialogchain/dialogchain \
+  --namespace dialogchain \
   --create-namespace \
   --set image.tag=v1.0.0 \
   --set config.cameraIp=192.168.1.100
 
 # Upgrade
-helm upgrade camel-router camel-router/camel-router \
+helm upgrade dialogchain dialogchain/dialogchain \
   --set image.tag=v1.1.0
 
 # Rollback
-helm rollback camel-router 1
+helm rollback dialogchain 1
 ```
 
 ### Continuous Deployment
@@ -920,10 +920,10 @@ helm rollback camel-router 1
 # GitHub Actions deployment
 - name: Deploy to Kubernetes
   run: |
-    kubectl set image deployment/camel-router \
-      camel-router=ghcr.io/${{ github.repository }}:${{ github.sha }} \
-      -n camel-router
-    kubectl rollout status deployment/camel-router -n camel-router
+    kubectl set image deployment/dialogchain \
+      dialogchain=ghcr.io/${{ github.repository }}:${{ github.sha }} \
+      -n dialogchain
+    kubectl rollout status deployment/dialogchain -n dialogchain
 ```
 
 ## Best Practices

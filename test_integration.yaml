@@ -1,0 +1,17 @@
+# Test Integration Configuration
+routes:
+  - name: "test_runner"
+    from: "timer:10s"  # Run every 10 seconds
+    
+    processors:
+      # This message will fail the coverage check
+      - type: "transform"
+        template: "test_status=passed coverage=75"
+
+      # This filter will pass because coverage < 80
+      - type: "filter"
+        condition: "{{test_status}} == 'failed' or {{coverage}} < 80"
+
+    to:
+      - "log:warn"
+      - "log:info"

@@ -79,29 +79,29 @@ class TestHTTPDestination:
         return HTTPDestination("http://example.com/webhook")
     
     @pytest.mark.asyncio
-    async def test_send_http_request(self, http_dest, capsys, mocker):
+    @patch('aiohttp.ClientSession')
+    async def test_send_http_request(self, mock_session_class, http_dest, capsys):
         """Test sending an HTTP request."""
-        # Create a mock response
+        # Setup mock response
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.text.return_value = "OK"
         
-        # Create a mock client session
-        mock_session = AsyncMock()
-        
-        # Mock the post method to return our mock response
+        # Setup mock post method
         mock_post = AsyncMock()
-        mock_post.return_value.__aenter__.return_value = mock_response
-        mock_session.post = mock_post
+        mock_post.__aenter__.return_value = mock_response
         
-        # Patch the ClientSession to return our mock session
-        mocker.patch('aiohttp.ClientSession', return_value=mock_session)
+        # Setup mock session
+        mock_session = AsyncMock()
+        mock_session.post.return_value = mock_post
+        mock_session.__aenter__.return_value = mock_session
+        mock_session_class.return_value = mock_session
         
         # Test with dict message
         await http_dest.send({"key": "value"})
         
         # Verify HTTP POST request was made
-        mock_post.assert_called_once_with(
+        mock_session.post.assert_called_once_with(
             'http://example.com/webhook',
             json={"key": "value"}
         )
@@ -111,18 +111,18 @@ class TestHTTPDestination:
         assert "🌐 HTTP sent to http://example.com/webhook" in captured.out
         
         # Reset mocks for next test
-        mock_post.reset_mock()
+        mock_session.post.reset_mock()
         mock_response.status = 200
         
         # Test with string message
         await http_dest.send("test message")
-        mock_post.assert_called_once_with(
+        mock_session.post.assert_called_once_with(
             'http://example.com/webhook',
             json={"data": "test message"}
         )
         
         # Reset mocks for error test
-        mock_post.reset_mock()
+        mock_session.post.reset_mock()
         mock_response.status = 400
         mock_response.text.return_value = "Bad Request"
         

@@ -1,0 +1,25 @@
+# Reliable Example with Working Features
+routes:
+  # Simple greeting route
+  - name: "simple_greeting"
+    from: "timer:5s"
+    processors:
+      - type: "transform"
+        template: "Hello from DialogChain! This is a reliable example."
+    to: "log:info"
+
+  # Message transformation with simple JSON
+  - name: "json_transform"
+    from: "timer:10s"
+    processors:
+      - type: "transform"
+        template: '{"action": "test", "status": "success"}'
+    to: "log:info"
+
+  # Conditional route with hardcoded values
+  - name: "alert_route"
+    from: "timer:15s"
+    processors:
+      - type: "transform"
+        template: "ALERT: This is a test alert"
+    to: "log:warn"

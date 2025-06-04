@@ -1,0 +1,22 @@
+# Email Test Configuration
+routes:
+  - name: "test_email"
+    from: "timer:30s"  # Run every 30 seconds
+    
+    processors:
+      - type: "transform"
+        template: |
+          {
+            "subject": "Test Email from DialogChain",
+            "body": "This is a test email sent at {{now().isoformat() if 'now' in globals() else 'current_time'}}\n\nThis email confirms that your SMTP configuration is working correctly.\n\nBest regards,\nDialogChain System"
+          }
+    
+    to: "smtp://{{SMTP_SERVER}}:{{SMTP_PORT}}?user={{SMTP_USER}}&password={{SMTP_PASS}}&to={{ALERT_EMAIL}}"
+
+# Required environment variables
+env_vars:
+  - SMTP_SERVER
+  - SMTP_PORT
+  - SMTP_USER
+  - SMTP_PASS
+  - ALERT_EMAIL
