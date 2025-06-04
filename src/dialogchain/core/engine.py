@@ -2,32 +2,50 @@
 
 import asyncio
 import signal
-from typing import Dict, List, Any, Optional, AsyncIterator
-from dataclasses import dataclass, field
 import logging
+from typing import Dict, List, Any, Optional, AsyncIterator, Callable, Awaitable
+from dataclasses import dataclass, field
 
 from ..exceptions import DialogChainError, ConfigurationError
-from .routes import Route, RouteConfig
-from .tasks import TaskManager
-from ..connectors import Source, Destination
-from ..processors import Processor
+from .route import Route
+from .connector import ConnectorManager
+from .processor import MessageProcessor
 
 logger = logging.getLogger(__name__)
 
-@dataclass
+
 class DialogChainEngine:
     """Main engine class for DialogChain processing."""
     
-    config: Dict[str, Any]
-    routes: List[Route] = field(default_factory=list)
-    tasks: List[asyncio.Task] = field(default_factory=list)
-    _is_running: bool = False
-    verbose: bool = False
-    
-    def __post_init__(self):
-        """Initialize the engine with configuration."""
-        self.task_manager = TaskManager()
+    def __init__(
+        self, 
+        config: Dict[str, Any], 
+        verbose: bool = False,
+        connector_manager: Optional[ConnectorManager] = None,
+        processor_factory: Optional[Callable[[Dict[str, Any]], Awaitable[Any]]] = None
+    ):
+        """Initialize the DialogChain engine.
+        
+        Args:
+            config: Engine configuration dictionary
+            verbose: Enable verbose logging
+            connector_manager: Optional pre-configured connector manager
+            processor_factory: Optional custom processor factory function
+        """
+        self.config = config
+        self.verbose = verbose
+        self._is_running = False
+        self._routes: List[Route] = []
+        self._tasks: List[asyncio.Task] = []
+        
+        # Set up logging
         self._setup_logging()
+        
+        # Initialize components
+        self.connector_manager = connector_manager or ConnectorManager()
+        self.processor_factory = processor_factory or self._create_processor
+        
+        # Load and validate configuration
         self._load_config()
     
     def _setup_logging(self):
@@ -37,6 +55,7 @@ class DialogChainEngine:
             level=log_level,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
+        logger.setLevel(log_level)
     
     def _load_config(self):
         """Load and validate configuration."""
@@ -46,13 +65,32 @@ class DialogChainEngine:
         # Load routes from config
         for route_config in self.config.get('routes', []):
             try:
-                route = Route.from_config(route_config)
-                self.routes.append(route)
+                route = self._create_route(route_config)
+                self._routes.append(route)
                 logger.info(f"Loaded route: {route.name}")
             except Exception as e:
-                logger.error(f"Failed to load route: {e}")
+                logger.error(f"Failed to load route: {e}", exc_info=True)
                 if self.verbose:
-                    logger.exception("Route loading error")
+                    raise
+    
+    async def _create_processor(self, config: Dict[str, Any]) -> Any:
+        """Create a processor from configuration.
+        
+        This is a default implementation that can be overridden by providing
+        a custom processor_factory to the engine constructor.
+        """
+        # Import here to avoid circular imports
+        from ..processors import create_processor
+        return create_processor(config)
+    
+    def _create_route(self, config: Dict[str, Any]) -> Route:
+        """Create a route from configuration."""
+        return Route.from_config(
+            config,
+            create_source=self.connector_manager.create_source,
+            create_processor=self.processor_factory,
+            create_destination=self.connector_manager.create_destination
+        )
     
     async def start(self):
         """Start the engine and all routes."""
@@ -63,16 +101,23 @@ class DialogChainEngine:
         self._is_running = True
         logger.info("Starting DialogChain engine...")
         
-        try:
-            for route in self.routes:
-                task = asyncio.create_task(self._run_route(route))
-                self.tasks.append(task)
-            
-            logger.info("Engine started successfully")
-        except Exception as e:
-            logger.error(f"Failed to start engine: {e}")
-            await self.stop()
-            raise
+        # Set up signal handlers for graceful shutdown
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(self.stop()))
+        
+        # Start all routes
+        for route in self._routes:
+            try:
+                await route.start()
+                self._tasks.append(asyncio.create_task(route._run_loop()))
+                logger.info(f"Started route: {route.name}")
+            except Exception as e:
+                logger.error(f"Failed to start route {route.name}: {e}", exc_info=True)
+                if self.verbose:
+                    raise
+                
+        logger.info("DialogChain engine started successfully")
     
     async def stop(self):
         """Stop the engine and clean up resources."""
@@ -83,15 +128,21 @@ class DialogChainEngine:
         self._is_running = False
         
         # Cancel all running tasks
-        for task in self.tasks:
+        for task in self._tasks:
             if not task.done():
                 task.cancel()
         
-        if self.tasks:
-            await asyncio.gather(*self.tasks, return_exceptions=True)
+        # Stop all routes
+        stop_tasks = [route.stop() for route in self._routes]
+        if stop_tasks:
+            await asyncio.gather(*stop_tasks, return_exceptions=True)
         
-        self.tasks.clear()
-        logger.info("Engine stopped")
+        # Wait for tasks to complete
+        if self._tasks:
+            await asyncio.gather(*self._tasks, return_exceptions=True)
+            
+        self._tasks.clear()
+        logger.info("DialogChain engine stopped")
     
     async def _run_route(self, route: Route):
         """Run a single route."""
