@@ -1,6 +1,12 @@
 # DialogChain - Flexible Dialog Processing Framework
 # Makefile for development and deployment
 
+# Logging configuration
+LOG_LEVEL ?= INFO
+LOG_FILE ?= logs/dialogchain.log
+DB_LOG_FILE ?= logs/dialogchain.db
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
 .PHONY: help install dev test clean build docker run-example lint docs \
         test-unit test-integration test-e2e coverage typecheck format check-codestyle \
         check-all pre-commit-install setup-dev-env docs-serve docs-clean \
@@ -26,6 +32,10 @@ help:
 	@echo "  logs             - View recent logs (use: make logs LINES=50)"
 	@echo "  view-logs        - View logs for running example"
 	@echo "  stop-example     - Stop a running example"
+	@echo "  log-level        - Set log level (use: make log-level LEVEL=DEBUG)"
+	@echo "  log-db           - View database logs (use: make log-db LIMIT=50)"
+	@echo "  log-tail         - Follow log file in real-time"
+	@echo "  log-clear        - Clear log files"
 	@echo "  docs             - Generate documentation"
 	@echo "  setup-env        - Create example .env file"
 	@echo ""
@@ -69,10 +79,18 @@ install-deps:
 # Development
 test: venv test-unit test-integration test-e2e
 
-# Run unit tests
+# Run unit tests with logging
 test-unit:
-	@pytest tests/unit/ -v --cov=src/dialogchain --cov-report=term-missing
-	@echo "✅ Unit tests completed"
+	@mkdir -p logs
+	@echo "🔍 Running unit tests with log level: $(LOG_LEVEL)"
+	@PYTHONPATH=./src pytest tests/unit/ -v \
+		--log-cli-level=$(LOG_LEVEL) \
+		--log-file=$(LOG_FILE) \
+		--log-file-level=$(LOG_LEVEL) \
+		--log-file-format="%(asctime)s - %(name)s - %(levelname)s - %(message)s" \
+		--cov=src/dialogchain \
+		--cov-report=term-missing
+	@echo "✅ Unit tests completed - Logs saved to $(LOG_FILE)"
 
 # Run integration tests
 test-integration:
@@ -96,6 +114,32 @@ coverage:
 typecheck:
 	@mypy src/dialogchain/
 	@echo "✅ Type checking completed"
+
+# Logging commands
+log-level:
+	@if [ -z "$(LEVEL)" ]; then \
+		echo "Current log level: $(LOG_LEVEL)"; \
+		echo "Usage: make log-level LEVEL=DEBUG|INFO|WARNING|ERROR|CRITICAL"; \
+	else \
+		sed -i.bak 's/^LOG_LEVEL = .*/LOG_LEVEL = $(LEVEL)/' Makefile && \
+		rm -f Makefile.bak && \
+		echo "✅ Log level set to $(LEVEL)"; \
+	fi
+
+log-db:
+	@mkdir -p logs
+	@echo "📋 Displaying last $(or $(LIMIT), 50) database log entries:"
+	@python -c "from dialogchain.utils.logger import display_recent_logs; display_recent_logs(limit=$(or $(LIMIT), 50))"
+
+log-tail:
+	@echo "📜 Tailing log file: $(LOG_FILE)"
+	@tail -f $(LOG_FILE)
+
+log-clear:
+	@rm -f $(LOG_FILE) $(DB_LOG_FILE)
+	@mkdir -p logs
+	@touch $(LOG_FILE) $(DB_LOG_FILE)
+	@echo "🧹 Log files cleared"
 
 # Run all linters
 lint:

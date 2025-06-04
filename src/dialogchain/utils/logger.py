@@ -1,25 +1,76 @@
 """
-Standardized logging with SQLite storage support.
+Standardized logging with SQLite storage support for DialogChain.
+
+This module provides a robust logging solution with the following features:
+- SQLite-based log storage for persistence and querying
+- Configurable log levels and formats
+- Thread-safe logging
+- Structured log data with timestamps and metadata
+- Support for both file and database logging
+
+Example usage:
+    >>> from dialogchain.utils.logger import setup_logger, get_logs
+    >>> logger = setup_logger(__name__, log_level='DEBUG')
+    >>> logger.info('This is an info message', extra={'key': 'value'})
+    >>> logs = get_logs(limit=10)
 """
 import logging
 import sqlite3
 import json
 import os
+import sys
+import threading
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
+from logging.handlers import RotatingFileHandler
+
+# Default configuration
+DEFAULT_LOG_LEVEL = logging.INFO
+DEFAULT_DB_PATH = 'logs/dialogchain.db'
+DEFAULT_LOG_FILE = 'logs/dialogchain.log'
+MAX_LOG_SIZE = 10 * 1024 * 1024  # 10MB
+BACKUP_COUNT = 5
+
+# Thread lock for SQLite operations
+db_lock = threading.Lock()
 
 # Create a module-level logger that doesn't trigger setup
 _logger = logging.getLogger(__name__)
-_logger.setLevel(logging.INFO)
+_logger.setLevel(DEFAULT_LOG_LEVEL)
 
-# Add console handler if no handlers are configured
+# Prevent duplicate handlers
 if not _logger.handlers:
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(
-        logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    # Create logs directory if it doesn't exist
+    os.makedirs(os.path.dirname(DEFAULT_DB_PATH) or '.', exist_ok=True)
+    os.makedirs(os.path.dirname(DEFAULT_LOG_FILE) or '.', exist_ok=True)
+    
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
     )
+    console_handler.setFormatter(console_formatter)
     _logger.addHandler(console_handler)
+    
+    # File handler with rotation
+    try:
+        file_handler = RotatingFileHandler(
+            DEFAULT_LOG_FILE,
+            maxBytes=MAX_LOG_SIZE,
+            backupCount=BACKUP_COUNT,
+            encoding='utf-8'
+        )
+        file_formatter = logging.Formatter(
+            '{"timestamp": "%(asctime)s", "level": "%(levelname)s", '
+            '"module": "%(name)s", "message": "%(message)s", "data": %(extra)s}',
+            datefmt='%Y-%m-%dT%H:%M:%S%z'
+        )
+        file_handler.setFormatter(file_formatter)
+        _logger.addHandler(file_handler)
+    except Exception as e:
+        _logger.error(f"Failed to initialize file handler: {e}", exc_info=True)
 
 
 class DatabaseLogHandler(logging.Handler):

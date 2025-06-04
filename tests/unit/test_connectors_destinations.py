@@ -85,17 +85,20 @@ class TestHTTPDestination:
         # Setup mock response
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.text.return_value = "OK"
+        mock_response.text = AsyncMock(return_value="OK")
         
-        # Setup mock post method
+        # Setup mock post method with async context manager
         mock_post = AsyncMock()
         mock_post.__aenter__.return_value = mock_response
         
-        # Setup mock session
+        # Setup mock session with async context manager
         mock_session = AsyncMock()
         mock_session.post.return_value = mock_post
-        mock_session.__aenter__.return_value = mock_session
-        mock_session_class.return_value = mock_session
+        
+        # Setup the session context manager
+        mock_session_ctx = AsyncMock()
+        mock_session_ctx.__aenter__.return_value = mock_session
+        mock_session_class.return_value = mock_session_ctx
         
         # Test with dict message
         await http_dest.send({"key": "value"})
@@ -124,7 +127,7 @@ class TestHTTPDestination:
         # Reset mocks for error test
         mock_session.post.reset_mock()
         mock_response.status = 400
-        mock_response.text.return_value = "Bad Request"
+        mock_response.text = AsyncMock(return_value="Bad Request")
         
         # Test error case
         await http_dest.send({"key": "value"})
