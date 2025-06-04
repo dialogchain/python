@@ -3,6 +3,7 @@ DialogChain Engine - Core processing engine for dialog chains
 """
 import aiohttp
 import asyncio
+import signal
 import json
 import os
 import subprocess
@@ -95,38 +96,60 @@ class DialogChainEngine:
         return self._is_running
         
     async def start(self):
-        """Start the engine and all routes"""
+        """Start the engine and all routes."""
         if self._is_running:
             self.log("Engine is already running")
             return
 
         self._is_running = True
         self.log("Starting engine...")
+        
+        # Clear any existing tasks
+        self._tasks = []
 
         try:
             for route in self.routes:
-                # Create source and connect
-                from_uri = self.resolve_variables(route["from"])
-                source = self.create_source(from_uri)
-                if hasattr(source, 'connect') and callable(source.connect):
-                    await source.connect()
-                    # Set is_connected flag if it exists
-                    if hasattr(source, 'is_connected'):
-                        source.is_connected = True
+                try:
+                    # Create source and connect
+                    from_uri = self.resolve_variables(route["from"])
+                    source = self.create_source(from_uri)
+                    if hasattr(source, 'connect') and callable(source.connect):
+                        await source.connect()
+                        # Set is_connected flag if it exists
+                        if hasattr(source, 'is_connected'):
+                            source.is_connected = True
 
-                # Create destination and connect
-                to_uri = self.resolve_variables(route["to"])
-                destination = self.create_destination(to_uri)
-                if hasattr(destination, 'connect') and callable(destination.connect):
-                    await destination.connect()
+                    # Create destination and connect
+                    to_uri = self.resolve_variables(route["to"])
+                    destination = self.create_destination(to_uri)
+                    if hasattr(destination, 'connect') and callable(destination.connect):
+                        await destination.connect()
+                        if hasattr(destination, 'is_connected'):
+                            destination.is_connected = True
 
-                # Create and store task
-                task = asyncio.create_task(self.run_route_config(route, source, destination))
-                self._tasks.append(task)
+                    # Create and store task
+                    task = asyncio.create_task(self.run_route_config(route, source, destination))
+                    self._tasks.append(task)
+                    self.log(f"✅ Started route: {route.get('name', 'unnamed')}")
+                    
+                except Exception as e:
+                    self.log(f"❌ Failed to start route {route.get('name', 'unnamed')}: {e}")
+                    if self.verbose:
+                        import traceback
+                        self.log(traceback.format_exc())
+                    continue
                 
-            self.log("Engine started successfully")
+            if not self._tasks:
+                self.log("⚠️  No routes were started successfully")
+                self._is_running = False
+            else:
+                self.log(f"✅ Engine started with {len(self._tasks)} active routes")
+                
         except Exception as e:
-            self.log(f"Error starting engine: {e}")
+            self.log(f"❌ Error starting engine: {e}")
+            if self.verbose:
+                import traceback
+                self.log(traceback.format_exc())
             await self.stop()
             raise
             
@@ -148,14 +171,57 @@ class DialogChainEngine:
                 
         self._tasks = []
     
-    async def run(self):
+    def run(self):
         """Run the engine until stopped."""
-        await self.start()
+        # Create a new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
         try:
+            # Start the engine
+            self.log("🚀 Starting DialogChain engine...")
+            start_task = loop.create_task(self.start())
+            loop.run_until_complete(start_task)
+            
+            # Keep the engine running until interrupted
+            self.log("✅ Engine is running. Press Ctrl+C to stop...")
+            
+            # Set up signal handlers for graceful shutdown
+            for signal_name in ('SIGINT', 'SIGTERM'):
+                loop.add_signal_handler(
+                    getattr(signal, signal_name),
+                    lambda: asyncio.create_task(self.stop())
+                )
+                
+            # Keep the main thread alive
             while self._is_running:
-                await asyncio.sleep(0.1)
-        except asyncio.CancelledError:
-            await self.stop()
+                loop.run_until_complete(asyncio.sleep(0.1))
+                
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            self.log("\n🛑 Received shutdown signal. Stopping gracefully...")
+        except Exception as e:
+            self.log(f"❌ Error in DialogChain engine: {e}")
+            if self.verbose:
+                import traceback
+                self.log(traceback.format_exc())
+            raise
+        finally:
+            # Ensure we clean up properly
+            if loop.is_running():
+                loop.stop()
+                
+            # Cancel all running tasks
+            pending = asyncio.all_tasks(loop=loop)
+            for task in pending:
+                task.cancel()
+                
+            # Run loop until tasks are done
+            if pending:
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                
+            # Close the loop
+            loop.close()
+            self.log("✅ DialogChain engine stopped")
     
     async def __aenter__(self):
         """Async context manager entry."""
@@ -313,18 +379,15 @@ class DialogChainEngine:
                     import traceback
                     self.log(traceback.format_exc())
                 raise
-                            destination.sent_messages.append(processed_message)
-                        except Exception as e:
-                            self.log(f"Error sending message to destination in route {route_name}: {e}")
-                            
-                except Exception as e:
-                    self.log(f"Error processing message in route {route_name}: {e}")
-                    
+                
         except asyncio.CancelledError:
             self.log(f"Route {route_name} cancelled")
             raise
         except Exception as e:
             self.log(f"Unexpected error in route {route_name}: {e}")
+            if self.verbose:
+                import traceback
+                self.log(traceback.format_exc())
             raise
         finally:
             # Clean up resources

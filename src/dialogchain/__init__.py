@@ -17,17 +17,45 @@ Usage:
     dialogchain validate -c config.yaml
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "DialogChain Team"
 
 # Core components
-from .engine import DialogChainEngine
-from .processors import *
-from .connectors import *
-from .exceptions import *
+from .core.engine import DialogChainEngine
 
-# Import and expose utility functions
+# Processors
+from .processors import (
+    Processor, 
+    TransformProcessor,
+    FilterProcessor,
+    EnrichProcessor,
+    ValidateProcessor
+)
+
+# Sources
+from .sources import (
+    Source,
+    TimerSource,
+    FileSource,
+    IMAPSource,
+    RTSPSource,
+    GRPCSource
+)
+
+# Destinations
+from .destinations import (
+    Destination,
+    LogDestination,
+    FileDestination,
+    HTTPDestination,
+    EmailDestination,
+    MQTTDestination,
+    GRPCDestination
+)
+
+# Utils and exceptions
 from . import utils
+from .exceptions import *
 
 __all__ = [
     # Core components
@@ -35,28 +63,27 @@ __all__ = [
     
     # Processors
     "Processor",
-    "ExternalProcessor",
-    "FilterProcessor",
     "TransformProcessor",
-    "AggregateProcessor",
-    "DebugProcessor",
+    "FilterProcessor",
+    "EnrichProcessor",
+    "ValidateProcessor",
     
     # Sources
     "Source",
-    "RTSPSource",
     "TimerSource",
     "FileSource",
-    "HTTPSource",
     "IMAPSource",
-    "MQTTSource",
+    "RTSPSource",
+    "GRPCSource",
     
     # Destinations
     "Destination",
-    "EmailDestination",
-    "HTTPDestination",
-    "MQTTDestination",
-    "FileDestination",
     "LogDestination",
+    "FileDestination",
+    "HTTPDestination",
+    "EmailDestination",
+    "MQTTDestination",
+    "GRPCDestination",
     
     # Utils
     "utils",
