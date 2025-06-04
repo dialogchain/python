@@ -260,28 +260,59 @@ class DialogChainEngine:
                 destination.sent_messages = []
                 
             # Process messages from source
-            async for message in source.receive():
-                if not self._is_running:
-                    break
-                    
-                try:
-                    # Process message through all processors
-                    processed_message = message
-                    for processor in processors:
-                        try:
-                            processed_message = await processor.process(processed_message)
-                            if processed_message is None:
-                                break  # Message was filtered out
-                        except Exception as e:
-                            self.log(f"Error in processor {type(processor).__name__} in route {route_name}: {e}")
-                            processed_message = None
-                            break
-                            
-                    # Send to destination if not filtered
-                    if processed_message is not None:
-                        try:
-                            await destination.send(processed_message)
-                            # Append to sent_messages for testing
+            try:
+                async for message in source.receive():
+                    if not self._is_running:
+                        self.log(f"🛑 Stopping route {route_name} (engine shutdown)")
+                        break
+                        
+                    try:
+                        # Process message through all processors
+                        processed_message = message
+                        for processor in processors:
+                            try:
+                                if hasattr(processor, 'process') and callable(processor.process):
+                                    self.log(f"⚙️  Processing message with {type(processor).__name__}")
+                                    processed_message = await processor.process(processed_message)
+                                    if processed_message is None:
+                                        self.log("ℹ️  Message filtered out by processor")
+                                        break  # Message was filtered out
+                            except Exception as e:
+                                self.log(f"❌ Error in processor {type(processor).__name__} in route {route_name}: {e}")
+                                if self.verbose:
+                                    import traceback
+                                    self.log(traceback.format_exc())
+                                processed_message = None
+                                break
+                                
+                        # Send to destination if not filtered
+                        if processed_message is not None:
+                            try:
+                                self.log(f"📤 Sending message to destination: {type(destination).__name__}")
+                                if hasattr(destination, 'send') and callable(destination.send):
+                                    await destination.send(processed_message)
+                                    # Store sent messages for testing/verification
+                                    if hasattr(destination, 'sent_messages') and isinstance(destination.sent_messages, list):
+                                        destination.sent_messages.append(processed_message)
+                            except Exception as e:
+                                self.log(f"❌ Error sending message to destination in route {route_name}: {e}")
+                                if self.verbose:
+                                    import traceback
+                                    self.log(traceback.format_exc())
+                    except Exception as e:
+                        self.log(f"❌ Error processing message in route {route_name}: {e}")
+                        if self.verbose:
+                            import traceback
+                            self.log(traceback.format_exc())
+            except asyncio.CancelledError:
+                self.log(f"🛑 Route {route_name} was cancelled")
+                raise
+            except Exception as e:
+                self.log(f"❌ Error in message loop for route {route_name}: {e}")
+                if self.verbose:
+                    import traceback
+                    self.log(traceback.format_exc())
+                raise
                             destination.sent_messages.append(processed_message)
                         except Exception as e:
                             self.log(f"Error sending message to destination in route {route_name}: {e}")
