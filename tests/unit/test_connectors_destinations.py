@@ -9,10 +9,8 @@ from dialogchain.connectors import (
     Destination,
     EmailDestination,
     HTTPDestination,
-    MQTTDestination,
     FileDestination,
-    LogDestination,
-    GRPCDestination
+    LogDestination
 )
 
 
@@ -136,38 +134,6 @@ class TestHTTPDestination:
         await http_dest.send({"key": "value"})
         captured = capsys.readouterr()
         assert "❌ HTTP error 400: Bad Request" in captured.out
-
-
-class TestMQTTDestination:
-    """Test the MQTTDestination class."""
-    
-    @pytest.fixture
-    def mqtt_dest(self):
-        """Create an MQTTDestination instance for testing."""
-        return MQTTDestination("mqtt://broker.example.com:1883/test/topic")
-    
-    @pytest.mark.asyncio
-    async def test_send_mqtt_message(self, mqtt_dest, capsys):
-        """Test sending an MQTT message."""
-        # Test with string message
-        await mqtt_dest.send("test message")
-        
-        # Check output
-        captured = capsys.readouterr()
-        assert "📡 MQTT sent to broker.example.com:1883/test/topic" in captured.out
-        
-        # Test with dict message
-        await mqtt_dest.send({"key": "value"})
-        
-        # Check output
-        captured = capsys.readouterr()
-        assert "📡 MQTT sent to broker.example.com:1883/test/topic" in captured.out
-        
-        # Test error case
-        with patch('json.dumps', side_effect=Exception("Test error")):
-            await mqtt_dest.send({"key": "value"})
-            captured = capsys.readouterr()
-            assert "❌ MQTT error: Test error" in captured.out
 
 
 class TestFileDestination:

@@ -4,7 +4,7 @@ import logging
 import json
 from typing import Any, Dict, Optional, Union
 
-from ....exceptions import DestinationError
+from ...exceptions import DestinationError
 from ..base import Destination
 
 logger = logging.getLogger(__name__)

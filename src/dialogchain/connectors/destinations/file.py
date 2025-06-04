@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Union, BinaryIO, TextIO
 
-from ....exceptions import DestinationError
+from ...exceptions import DestinationError
 from ..base import Destination
 
 logger = logging.getLogger(__name__)

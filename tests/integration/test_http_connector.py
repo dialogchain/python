@@ -1,6 +1,6 @@
 """Integration tests for HTTP connector using mock endpoints."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
@@ -54,19 +54,32 @@ class TestHTTPConnectorIntegration:
             connector = HTTPDestination(f"{server_url}/echo")
             test_data = {"test": "data"}
             
-            # Mock the session to capture the request
-            with patch('aiohttp.ClientSession.post') as mock_post:
-                mock_response = MagicMock()
-                mock_response.__aenter__.return_value.status = 200
-                mock_response.__aenter__.return_value.json.return_value = {"echo": test_data}
-                mock_post.return_value = mock_response
-                
+            # Create a mock response
+            mock_response = MagicMock()
+            mock_response.status = 200
+            mock_response.json.return_value = {"echo": test_data}
+            
+            # Create a mock request context manager
+            mock_request = MagicMock()
+            mock_request.__aenter__.return_value = mock_response
+            mock_request.__aexit__.return_value = None
+            
+            # Create a mock session
+            mock_session = MagicMock()
+            mock_session.request.return_value = mock_request
+            
+            # Patch the ClientSession to return our mock session
+            with patch('aiohttp.ClientSession', return_value=mock_session):
+                # Send the request
                 await connector.send(test_data)
                 
                 # Verify the request was made correctly
-                mock_post.assert_called_once_with(
-                    f"{server_url}/echo",
-                    json=test_data
+                mock_session.request.assert_called_once_with(
+                    method='POST',
+                    url=f"{server_url}/echo",
+                    json=test_data,
+                    data=None,
+                    ssl=None
                 )
                 
         finally:

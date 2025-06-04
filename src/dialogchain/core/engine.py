@@ -1,52 +1,26 @@
-"""Core DialogChain engine implementation."""
+"""
+DEPRECATED: This module is deprecated and will be removed in a future version.
+Please update your imports to use 'dialogchain.engine' instead.
+"""
 
-import asyncio
-import signal
-import logging
-from typing import Dict, List, Any, Optional, AsyncIterator, Callable, Awaitable
-from dataclasses import dataclass, field
+import warnings
 
-from ..exceptions import DialogChainError, ConfigurationError
-from .route import Route
-from .connector import ConnectorManager
-from .processor import MessageProcessor
+# Raise deprecation warning
+warnings.warn(
+    "The 'dialogchain.core.engine' module is deprecated. "
+    "Please update your imports to use 'dialogchain.engine' instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
-logger = logging.getLogger(__name__)
-
-
-class DialogChainEngine:
-    """Main engine class for DialogChain processing."""
-    
-    def __init__(
-        self, 
-        config: Dict[str, Any], 
-        verbose: bool = False,
-        connector_manager: Optional[ConnectorManager] = None,
-        processor_factory: Optional[Callable[[Dict[str, Any]], Awaitable[Any]]] = None
-    ):
-        """Initialize the DialogChain engine.
-        
-        Args:
-            config: Engine configuration dictionary
-            verbose: Enable verbose logging
-            connector_manager: Optional pre-configured connector manager
-            processor_factory: Optional custom processor factory function
-        """
-        self.config = config
-        self.verbose = verbose
-        self._is_running = False
-        self._routes: List[Route] = []
-        self._tasks: List[asyncio.Task] = []
-        
-        # Set up logging
-        self._setup_logging()
-        
-        # Initialize components
-        self.connector_manager = connector_manager or ConnectorManager()
-        self.processor_factory = processor_factory or self._create_processor
-        
-        # Load and validate configuration
-        self._load_config()
+# Re-export for backward compatibility
+try:
+    from ...engine import DialogChainEngine
+except ImportError as e:
+    raise ImportError(
+        "Failed to import from new module location. "
+        "Please update your code to use 'dialogchain.engine' directly."
+    ) from e
     
     def _setup_logging(self):
         """Configure logging based on verbosity."""

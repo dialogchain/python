@@ -7,7 +7,7 @@ import aiohttp
 from typing import Any, Dict, Optional, Union
 from urllib.parse import urlparse, parse_qs
 
-from ....exceptions import DestinationError
+from ...exceptions import DestinationError
 from ..base import Destination
 
 logger = logging.getLogger(__name__)

@@ -17,77 +17,94 @@ Usage:
     dialogchain validate -c config.yaml
 """
 
+import logging
+from typing import Dict, Any, Optional, Type, List, Union
+
 __version__ = "0.2.0"
 __author__ = "DialogChain Team"
 
-# Core components
-from .core.engine import DialogChainEngine
+# Import core components
+from .engine import (
+    DialogChainEngine,
+    Route,
+    RouteConfig,
+    ProcessorManager,
+    ProcessorConfig,
+    ConnectorManager,
+    default_connector_manager,
+    parse_uri,
+    merge_dicts,
+    get_nested_value,
+    set_nested_value,
+    deep_update,
+    format_template
+)
 
-# Processors
+# Import processors
 from .processors import (
-    Processor, 
+    Processor,
     TransformProcessor,
     FilterProcessor,
-    EnrichProcessor,
-    ValidateProcessor
+    ExternalProcessor,
+    AggregateProcessor,
+    DebugProcessor,
+    create_processor,
 )
 
-# Sources
-from .sources import (
+# Import connectors
+from .connectors import (
     Source,
-    TimerSource,
-    FileSource,
-    IMAPSource,
-    RTSPSource,
-    GRPCSource
-)
-
-# Destinations
-from .destinations import (
     Destination,
-    LogDestination,
-    FileDestination,
+    RTSPSource,
+    FileSource,
     HTTPDestination,
+    FileDestination,
+    IMAPSource,
+    TimerSource,
     EmailDestination,
-    MQTTDestination,
-    GRPCDestination
+    LogDestination,
 )
 
-# Utils and exceptions
-from . import utils
-from .exceptions import *
+# For backward compatibility
+ProcessorType = Type[Processor]
 
 __all__ = [
-    # Core components
-    "DialogChainEngine",
+    # Core
+    'DialogChainEngine',
+    'Route',
+    'RouteConfig',
+    'ProcessorManager',
+    'ProcessorConfig',
+    'ConnectorManager',
+    'default_connector_manager',
+    'parse_uri',
+    'merge_dicts',
+    'get_nested_value',
+    'set_nested_value',
+    'deep_update',
+    'format_template',
     
     # Processors
-    "Processor",
-    "TransformProcessor",
-    "FilterProcessor",
-    "EnrichProcessor",
-    "ValidateProcessor",
+    'Processor',
+    'TransformProcessor',
+    'FilterProcessor',
+    'ExternalProcessor',
+    'AggregateProcessor',
+    'DebugProcessor',
+    'create_processor',
+    'ProcessorType',
     
-    # Sources
-    "Source",
-    "TimerSource",
-    "FileSource",
-    "IMAPSource",
-    "RTSPSource",
-    "GRPCSource",
-    
-    # Destinations
-    "Destination",
-    "LogDestination",
-    "FileDestination",
-    "HTTPDestination",
-    "EmailDestination",
-    "MQTTDestination",
-    "GRPCDestination",
-    
-    # Utils
-    "utils",
-    
+    # Connectors
+    'Source',
+    'Destination',
+    'RTSPSource',
+    'FileSource',
+    'HTTPDestination',
+    'FileDestination',
+    'IMAPSource',
+    'TimerSource',
+    'EmailDestination',
+    'LogDestination',
     # Exceptions
     "DialogChainError",
     "ConfigurationError",

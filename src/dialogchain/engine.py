@@ -1,99 +1,145 @@
 """
-DialogChain Engine - Core processing engine for dialog chains
-"""
-import aiohttp
-import asyncio
-import signal
-import json
-import os
-import subprocess
-import tempfile
-from typing import Dict, List, Any, Optional, Tuple, Generator, AsyncGenerator
-from urllib.parse import urlparse, parse_qs
-from jinja2 import Template
-import yaml
+DialogChain Engine - High-level interface for DialogChain processing.
 
-from .processors import (
-    Processor, create_processor, FilterProcessor, TransformProcessor,
-    AggregateProcessor, DebugProcessor, ExternalProcessor
+This module provides a simplified interface to the DialogChain engine,
+using the modular components from the engine package.
+
+Note: This module is now a compatibility layer that forwards to the new
+modular implementation in the dialogchain.engine package.
+"""
+
+import logging
+from typing import Dict, Any, Optional, Type, List, Union
+
+# Import from the new engine package
+from .engine import (
+    DialogChainEngine as NewDialogChainEngine,
+    Route,
+    RouteConfig,
+    ProcessorManager,
+    ProcessorConfig,
+    ConnectorManager,
+    default_connector_manager,
+    parse_uri,
+    merge_dicts,
+    get_nested_value,
+    set_nested_value,
+    deep_update,
+    format_template
 )
 
 # For backward compatibility
+from .processors import Processor
+
+# Set up logger
+logger = logging.getLogger(__name__)
+
+# For backward compatibility
 ProcessorType = type(Processor)
-from .connectors import (
-    Source, Destination, RTSPSource, FileSource, 
-    HTTPDestination, FileDestination, IMAPSource, TimerSource, GRPCSource,
-    EmailDestination, MQTTDestination, LogDestination, GRPCDestination
-)
-from dialogchain.utils.logger import setup_logger
 
-logger = setup_logger(__name__)
-
-
-
-def parse_uri(uri: str) -> Tuple[str, str]:
+# Alias the new engine class to maintain backward compatibility
+DialogChainEngine = NewDialogChainEngine
+        ...             "name": "example",
+        ...             "from": "timer:5s",
+        ...             "processors": [{"type": "transform", "template": "{{ message }}"}],
+        ...             "to": ["log:info"]
+        ...         }
+        ...     ]
+        ... }
+        >>> engine = DialogChainEngine(config)
+        >>> engine.run()
     """
-    Parse a URI string into its scheme and path components.
-
-    Args:
-        uri: The URI string to parse (e.g., 'timer:5s' or 'http://example.com')
-
-    Returns:
-        A tuple of (scheme, path) where:
-        - scheme is the URI scheme (e.g., 'timer', 'http')
-        - path is the rest of the URI after the scheme
-
-    Example:
-        >>> parse_uri('timer:5s')
-        ('timer', '5s')
-        >>> parse_uri('http://example.com/path')
-        ('http', '//example.com/path')
-    """
-    if "://" in uri:
-        # Handle standard URIs with ://
-        scheme, path = uri.split("://", 1)
-        return scheme, f"//{path}"  # Ensure path starts with // for standard URIs
-    elif ":" in uri:
-        # Handle simple URIs with just a scheme:path
-        scheme, path = uri.split(":", 1)
-        return scheme, path
-    else:
-        raise ValueError(f"Invalid URI format: {uri}")
-
-
-class DialogChainEngine:
+    
     def __init__(self, config: Dict[str, Any], verbose: bool = False):
-        # Initialize logger first
-        self.logger = setup_logger(__name__)
-        self.logger.info("🔧 Initializing DialogChainEngine")
+        """Initialize the DialogChain engine.
         
+        Args:
+            config: Engine configuration dictionary
+            verbose: Enable verbose logging
+        """
         self.config = config
         self.verbose = verbose
-        self.routes = config.get("routes", [])
-        self.running_processes = {}
-        self._is_running = False
-        self._tasks = []
+        self._core_engine = None
         
-        self.logger.info(f"🔧 Loaded {len(self.routes)} routes from config")
-        if self.verbose:
-            self.logger.info(f"🔧 Verbose mode enabled")
-
-        # Validate the configuration on initialization
-        self.logger.info("🔧 Validating configuration...")
-        errors = self.validate_config()
-        if errors:
-            error_msg = "Invalid configuration:\n" + "\n".join(
-                f"- {error}" for error in errors
-            )
-            self.logger.error(f"❌ Configuration validation failed: {error_msg}")
-            raise ValueError(error_msg)
+        # Set up logging
+        log_level = logging.DEBUG if verbose else logging.INFO
+        logging.basicConfig(
+            level=log_level,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        
+        # Initialize the core engine
+        self._init_engine()
+    
+    def _init_engine(self):
+        """Initialize the core engine with configuration."""
+        # Create a connector manager with default connectors
+        connector_manager = ConnectorManager()
+        
+        # Initialize the core engine
+        self._core_engine = CoreEngine(
+            config=self.config,
+            verbose=self.verbose,
+            connector_manager=connector_manager
+        )
+    
+    @property
+    def is_running(self) -> bool:
+        """Check if the engine is running."""
+        return self._core_engine.is_running if self._core_engine else False
+    
+    async def start(self):
+        """Start the engine and all routes."""
+        if not self._core_engine:
+            self._init_engine()
+        
+        await self._core_engine.start()
+    
+    async def stop(self):
+        """Stop the engine and all routes."""
+        if self._core_engine:
+            await self._core_engine.stop()
+    
+    def run(self):
+        """Run the engine in the current event loop."""
+        loop = asyncio.get_event_loop()
+        
+        try:
+            # Start the engine
+            loop.run_until_complete(self.start())
             
-        self.logger.info("✅ Engine initialized successfully")
+            # Run forever until interrupted
+            loop.run_forever()
+        except (KeyboardInterrupt, SystemExit):
+            logger.info("Shutting down...")
+        finally:
+            loop.run_until_complete(self.stop())
+            loop.close()
+    
+    async def __aenter__(self):
+        """Async context manager entry."""
+        await self.start()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.stop()
+    
+    def __del__(self):
+        """Ensure resources are cleaned up on deletion."""
+        if self.is_running:
+            logger.warning("Engine was not properly stopped before destruction")
+            if self._core_engine:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(self.stop())
+                else:
+                    loop.run_until_complete(self.stop())
             
     @property
     def is_running(self) -> bool:
         """Return whether the engine is currently running."""
-        return self._is_running
+        return self.is_running
         
     async def start(self):
         """Start the engine and all routes."""

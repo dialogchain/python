@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 from datetime import datetime, timedelta
-from typing import Dict, Any, AsyncIterator, Union
+from typing import Dict, Any, AsyncIterator, Union, Optional
 
 from ..base import Source
 

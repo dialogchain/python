@@ -7,7 +7,6 @@ from dialogchain.connectors import (
     Source,
     RTSPSource,
     TimerSource,
-    GRPCSource,
     FileSource
 )
 
