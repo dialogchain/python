@@ -4,6 +4,16 @@ import pytest
 from unittest.mock import AsyncMock, patch
 from dialogchain.connectors import HTTPDestination
 
+class AsyncMockContext:
+    def __init__(self, return_value):
+        self.return_value = return_value
+    
+    async def __aenter__(self):
+        return self.return_value
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
 class TestHTTPDestination:
     """Test HTTP destination connector."""
     
@@ -15,23 +25,14 @@ class TestHTTPDestination:
     @pytest.mark.asyncio
     async def test_send_http_request(self, http_dest, capsys):
         """Test sending an HTTP request."""
-        # Create a mock response for successful request
+        # Create a mock response
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.text = AsyncMock(return_value="OK")
         
-        # Create a mock post method
-        async def mock_post(*args, **kwargs):
-            return mock_response
-            
-        # Create a mock session
-        mock_session = AsyncMock()
-        mock_session.post.side_effect = mock_post
-        mock_session.__aenter__.return_value = mock_session
-        mock_session.__aexit__.return_value = None
-        
-        # Patch the ClientSession
-        with patch('aiohttp.ClientSession', return_value=mock_session):
+        # Patch the ClientSession.post method directly
+        with patch('aiohttp.ClientSession.post', 
+                  return_value=AsyncMockContext(mock_response)) as mock_post:
             # Test with dict message
             await http_dest.send({"key": "value"})
             
@@ -40,7 +41,7 @@ class TestHTTPDestination:
             assert "🌐 HTTP sent to http://example.com/webhook" in captured.out
             
             # Verify the post was called correctly
-            mock_session.post.assert_called_once_with(
+            mock_post.assert_called_once_with(
                 'http://example.com/webhook',
                 json={"key": "value"}
             )
@@ -53,18 +54,9 @@ class TestHTTPDestination:
         mock_response.status = 200
         mock_response.text = AsyncMock(return_value="OK")
         
-        # Create a mock post method
-        async def mock_post(*args, **kwargs):
-            return mock_response
-            
-        # Create a mock session
-        mock_session = AsyncMock()
-        mock_session.post.side_effect = mock_post
-        mock_session.__aenter__.return_value = mock_session
-        mock_session.__aexit__.return_value = None
-        
-        # Patch the ClientSession
-        with patch('aiohttp.ClientSession', return_value=mock_session):
+        # Patch the ClientSession.post method directly
+        with patch('aiohttp.ClientSession.post',
+                  return_value=AsyncMockContext(mock_response)) as mock_post:
             # Test with string message
             await http_dest.send("test message")
             
@@ -73,7 +65,7 @@ class TestHTTPDestination:
             assert "🌐 HTTP sent to http://example.com/webhook" in captured.out
             
             # Verify the post was called correctly
-            mock_session.post.assert_called_once_with(
+            mock_post.assert_called_once_with(
                 'http://example.com/webhook',
                 json={"data": "test message"}
             )
@@ -86,18 +78,9 @@ class TestHTTPDestination:
         mock_response.status = 400
         mock_response.text = AsyncMock(return_value="Bad Request")
         
-        # Create a mock post method
-        async def mock_post(*args, **kwargs):
-            return mock_response
-            
-        # Create a mock session
-        mock_session = AsyncMock()
-        mock_session.post.side_effect = mock_post
-        mock_session.__aenter__.return_value = mock_session
-        mock_session.__aexit__.return_value = None
-        
-        # Patch the ClientSession
-        with patch('aiohttp.ClientSession', return_value=mock_session):
+        # Patch the ClientSession.post method directly
+        with patch('aiohttp.ClientSession.post',
+                  return_value=AsyncMockContext(mock_response)) as mock_post:
             # Test with dict message
             await http_dest.send({"key": "value"})
             

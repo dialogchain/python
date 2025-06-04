@@ -16,6 +16,9 @@ from .processors import (
     Processor, create_processor, FilterProcessor, TransformProcessor,
     AggregateProcessor, DebugProcessor, ExternalProcessor
 )
+
+# For backward compatibility
+ProcessorType = type(Processor)
 from .connectors import (
     Source, Destination, RTSPSource, FileSource, 
     HTTPDestination, FileDestination, IMAPSource, TimerSource, GRPCSource,
@@ -159,9 +162,35 @@ class DialogChainEngine:
         """Run all routes concurrently"""
         tasks = []
         for route_config in self.routes:
-            task = asyncio.create_task(self.run_route_config(route_config))
-            tasks.append(task)
+            try:
+                # Create source and destination for this route
+                from_uri = self.resolve_variables(route_config.get('from', ''))
+                to_uri = self.resolve_variables(route_config.get('to', ''))
+                
+                if not from_uri or not to_uri:
+                    self.log(f"Skipping route '{route_config.get('name', 'unnamed')}': missing 'from' or 'to' URI")
+                    continue
+                    
+                source = self.create_source(from_uri)
+                destination = self.create_destination(to_uri)
+                
+                # Create and start task for this route
+                task = asyncio.create_task(
+                    self.run_route(route_config, source, destination)
+                )
+                tasks.append(task)
+                
+            except Exception as e:
+                self.log(f"Error setting up route '{route_config.get('name', 'unnamed')}': {e}")
+                if self.verbose:
+                    import traceback
+                    traceback.print_exc()
+                continue
 
+        if not tasks:
+            self.log("No valid routes to run")
+            return
+            
         self.log(f"Starting {len(tasks)} routes...")
         await asyncio.gather(*tasks, return_exceptions=True)
 

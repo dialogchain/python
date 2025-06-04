@@ -55,13 +55,28 @@ def run(config, env_file, route, dry_run, verbose):
     # Run routes
     try:
         if route:
-            asyncio.run(engine.run_route(route))
+            # Find the specific route by name
+            route_config = next((r for r in config_data.get('routes', []) if r.get('name') == route), None)
+            if not route_config:
+                click.echo(f"❌ Route '{route}' not found in configuration", err=True)
+                return
+                
+            # Create source and destination
+            source = engine.create_source(route_config['from'])
+            destination = engine.create_destination(route_config['to'])
+            
+            # Run the specific route
+            asyncio.run(engine.run_route(route_config, source, destination))
         else:
+            # Run all routes
             asyncio.run(engine.run_all_routes())
     except KeyboardInterrupt:
         click.echo("\n🛑 Shutting down...")
     except Exception as e:
         click.echo(f"❌ Error: {e}", err=True)
+        if verbose:
+            import traceback
+            traceback.print_exc()
 
 
 def update_env_file(env_path, required_vars):
