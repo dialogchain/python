@@ -317,47 +317,18 @@ class Route:
         return handled
     
     async def _safe_receive(self, source: Source) -> Any:
-        """Safely receive data from a source with retries."""
-        for attempt in range(self.retry_attempts + 1):
-            try:
-                return await asyncio.wait_for(
-                    source.receive(),
-                    timeout=self.timeout
-                )
-            except asyncio.TimeoutError:
-                if attempt == self.retry_attempts:
-                    logger.error(f"Timeout receiving from source in route {self.name}")
-                    raise
-                await asyncio.sleep(self.retry_delay)
-            except Exception as e:
-                logger.error(f"Error receiving from source in route {self.name}: {e}")
-                if attempt == self.retry_attempts:
-                    raise
-                await asyncio.sleep(self.retry_delay)
-        return None
-    
-    async def _safe_send(self, destination: Destination, data: Any) -> None:
-        """Safely send data to a destination with retries."""
-        for attempt in range(self.retry_attempts + 1):
-            try:
-                await asyncio.wait_for(
-                    destination.send(data),
-                    timeout=self.timeout
-                )
-                return
-            except asyncio.TimeoutError:
-                if attempt == self.retry_attempts:
-                    logger.error(f"Timeout sending to destination in route {self.name}")
-                    raise
-                await asyncio.sleep(self.retry_delay)
-            except Exception as e:
-                logger.error(f"Error sending to destination in route {self.name}: {e}")
-                if attempt == self.retry_attempts:
-                    raise
-                await asyncio.sleep(self.retry_delay)
-    
-    async def _safe_receive(self, source: Source) -> Any:
-        """Safely receive data from a source with retries."""
+        """Safely receive data from a source with retries.
+        
+        Args:
+            source: The source to receive data from
+            
+        Returns:
+            The received data, or None if all retries are exhausted
+            
+        Raises:
+            asyncio.TimeoutError: If the operation times out after all retries
+            Exception: If an error occurs after all retries
+        """
         for attempt in range(self.retry_attempts + 1):
             try:
                 return await asyncio.wait_for(
@@ -377,7 +348,16 @@ class Route:
         return None
     
     async def _safe_send(self, destination: Destination, data: Any) -> None:
-        """Safely send data to a destination with retries."""
+        """Safely send data to a destination with retries.
+        
+        Args:
+            destination: The destination to send data to
+            data: The data to send
+            
+        Raises:
+            asyncio.TimeoutError: If the operation times out after all retries
+            Exception: If an error occurs after all retries
+        """
         for attempt in range(self.retry_attempts + 1):
             try:
                 await asyncio.wait_for(
